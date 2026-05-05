@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        width: 300px;
+        height: 400px;
+        margin: 0;
+        overflow: hidden;
+        color: #1f2933;
+        font: 12px Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f7f8fa;
+      }
+
+      .plugin {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+        padding: 12px;
+        gap: 10px;
+      }
+
+      textarea {
+        flex: 1;
+        width: 100%;
+        min-height: 0;
+        resize: none;
+        border: 1px solid #d0d5dd;
+        border-radius: 6px;
+        padding: 10px;
+        outline: none;
+        color: #111827;
+        background: #ffffff;
+        font: 12px/1.45 Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      textarea:focus {
+        border-color: #18a0fb;
+        box-shadow: 0 0 0 1px #18a0fb;
+      }
+
+      button {
+        height: 36px;
+        border: 0;
+        border-radius: 6px;
+        color: #ffffff;
+        background: #18a0fb;
+        font: 600 12px Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        color: #98a2b3;
+        background: #e4e7ec;
+        cursor: default;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="plugin">
+      <textarea id="list" autofocus placeholder="Paste one item per line"></textarea>
+      <button id="populate" disabled>Populate</button>
+    </div>
+
+    <script>
+      const textarea = document.getElementById("list");
+      const button = document.getElementById("populate");
+      let hasValidSelection = false;
+
+      function getLines() {
+        return textarea.value
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+      }
+
+      function updateButtonState() {
+        button.disabled = getLines().length === 0 || !hasValidSelection;
+      }
+
+      textarea.addEventListener("input", updateButtonState);
+
+      button.addEventListener("click", () => {
+        button.disabled = true;
+        parent.postMessage(
+          {
+            pluginMessage: {
+              type: "populate",
+              text: textarea.value
+            }
+          },
+          "*"
+        );
+      });
+
+      window.onmessage = (event) => {
+        const message = event.data.pluginMessage;
+        if (message && message.type === "populate-result") {
+          updateButtonState();
+        }
+
+        if (message && message.type === "selection-state") {
+          hasValidSelection = message.hasValidSelection;
+          updateButtonState();
+        }
+      };
+    </script>
+  </body>
+</html>
