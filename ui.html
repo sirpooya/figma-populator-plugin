@@ -7,9 +7,10 @@
         box-sizing: border-box;
       }
 
+      html,
       body {
-        width: 300px;
-        height: 400px;
+        width: 100%;
+        height: 100%;
         margin: 0;
         overflow: hidden;
         color: #1f2933;
@@ -26,33 +27,111 @@
         gap: 10px;
       }
 
-      textarea {
+      /* Segmented control */
+      .segmented {
+        display: flex;
+        background: #e9ebef;
+        border-radius: 8px;
+        padding: 2px;
+        gap: 2px;
+        flex: 0 0 auto;
+      }
+
+      .segmented button {
         flex: 1;
-        width: 100%;
+        height: 28px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #4b5563;
+        font: 600 11px Inter, system-ui, sans-serif;
+        cursor: pointer;
+      }
+
+      .segmented button.active {
+        background: #ffffff;
+        color: #111827;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.1);
+      }
+
+      .tab {
+        display: none;
+        flex-direction: column;
+        gap: 10px;
+        flex: 1;
         min-height: 0;
-        resize: none;
+      }
+
+      .tab.active {
+        display: flex;
+      }
+
+      textarea,
+      input[type="text"],
+      input[type="url"],
+      select {
+        width: 100%;
         border: 1px solid #d0d5dd;
         border-radius: 6px;
-        padding: 10px;
+        padding: 8px 10px;
         outline: none;
         color: #111827;
         background: #ffffff;
-        font: 12px/1.45 Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font: 12px/1.45 Inter, system-ui, sans-serif;
       }
 
-      textarea:focus {
+      textarea {
+        flex: 1;
+        min-height: 0;
+        resize: none;
+      }
+
+      textarea:focus,
+      input:focus,
+      select:focus {
         border-color: #18a0fb;
         box-shadow: 0 0 0 1px #18a0fb;
       }
 
-      button {
+      label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        color: #4b5563;
+        margin-bottom: 4px;
+      }
+
+      .field {
+        flex: 0 0 auto;
+      }
+
+      .row {
+        display: flex;
+        gap: 6px;
+      }
+
+      .row > * {
+        flex: 1;
+      }
+
+      button.primary,
+      button.secondary {
         height: 36px;
         border: 0;
         border-radius: 6px;
+        font: 600 12px Inter, system-ui, sans-serif;
+        cursor: pointer;
+        flex: 0 0 auto;
+      }
+
+      button.primary {
         color: #ffffff;
         background: #18a0fb;
-        font: 600 12px Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        cursor: pointer;
+      }
+
+      button.secondary {
+        color: #111827;
+        background: #e4e7ec;
       }
 
       button:disabled {
@@ -60,54 +139,444 @@
         background: #e4e7ec;
         cursor: default;
       }
+
+      /* Mapping list */
+      .mapping {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        border: 1px solid #e4e7ec;
+        border-radius: 6px;
+        background: #ffffff;
+        padding: 8px;
+      }
+
+      .map-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+
+      .map-row .fieldname {
+        flex: 0 0 120px;
+        font-size: 11px;
+        font-weight: 600;
+        color: #374151;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .map-row .arrow {
+        color: #9ca3af;
+        flex: 0 0 auto;
+      }
+
+      .map-row select {
+        flex: 1;
+        padding: 5px 6px;
+      }
+
+      .hint {
+        font-size: 10px;
+        color: #6b7280;
+        line-height: 1.4;
+      }
+
+      .status {
+        font-size: 10px;
+        color: #6b7280;
+        min-height: 12px;
+      }
+
+      .status.error {
+        color: #d92d20;
+      }
+
+      .status.ok {
+        color: #079455;
+      }
+
+      /* Bottom-right resize grabber */
+      .resize-handle {
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        width: 16px;
+        height: 16px;
+        cursor: nwse-resize;
+        z-index: 10;
+      }
+
+      .resize-handle svg {
+        display: block;
+        position: absolute;
+        right: 2px;
+        bottom: 2px;
+      }
     </style>
   </head>
   <body>
     <div class="plugin">
-      <textarea id="list" autofocus placeholder="Paste one item per line"></textarea>
-      <button id="populate" disabled>Populate</button>
+      <div class="segmented">
+        <button data-tab="paste" class="active">Paste</button>
+        <button data-tab="sheet">Google Sheet</button>
+        <button data-tab="api">JSON API</button>
+      </div>
+
+      <!-- Mode #1: Paste -->
+      <div class="tab active" data-tab="paste">
+        <textarea id="paste-input" autofocus placeholder="Paste one item per line"></textarea>
+        <button id="paste-populate" class="primary" disabled>Populate</button>
+      </div>
+
+      <!-- Mode #2: Google Sheet -->
+      <div class="tab" data-tab="sheet">
+        <div class="field">
+          <label>Google Sheet URL</label>
+          <input id="sheet-url" type="url" placeholder="https://docs.google.com/spreadsheets/d/..." />
+          <div class="hint">Share the sheet as "Anyone with the link can view". First row = column names.</div>
+        </div>
+        <div class="row field">
+          <input id="sheet-tab" type="text" placeholder="Tab name (optional)" />
+          <button id="sheet-fetch" class="secondary">Fetch</button>
+        </div>
+        <div class="status" id="sheet-status"></div>
+        <div class="mapping" id="sheet-mapping" style="display:none"></div>
+        <button id="sheet-populate" class="primary" disabled>Populate</button>
+      </div>
+
+      <!-- Mode #3: JSON API -->
+      <div class="tab" data-tab="api">
+        <div class="field">
+          <label>API URL</label>
+          <input id="api-url" type="url" placeholder="https://api.example.com/items" />
+        </div>
+        <div class="field">
+          <label>Array path (optional)</label>
+          <input id="api-path" type="text" placeholder="e.g. data.items — leave blank if root is an array" />
+          <div class="hint">Dot path to the array of records inside the response.</div>
+        </div>
+        <div class="row field">
+          <button id="api-fetch" class="secondary">Fetch</button>
+        </div>
+        <div class="status" id="api-status"></div>
+        <div class="mapping" id="api-mapping" style="display:none"></div>
+        <button id="api-populate" class="primary" disabled>Populate</button>
+      </div>
+    </div>
+
+    <div class="resize-handle" id="resize-handle" title="Drag to resize">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M11 1 L1 11 M11 5 L5 11 M11 9 L9 11" stroke="#9ca3af" stroke-width="1" />
+      </svg>
     </div>
 
     <script>
-      const textarea = document.getElementById("list");
-      const button = document.getElementById("populate");
-      let hasValidSelection = false;
+      var hasValidSelection = false;
+      var textLayers = [];
 
-      function getLines() {
-        return textarea.value
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .filter(Boolean);
-      }
+      // Holds parsed records per mode so we can build mappings.
+      var sheetRecords = [];
+      var apiRecords = [];
 
-      function updateButtonState() {
-        button.disabled = getLines().length === 0 || !hasValidSelection;
-      }
-
-      textarea.addEventListener("input", updateButtonState);
-
-      button.addEventListener("click", () => {
-        button.disabled = true;
-        parent.postMessage(
-          {
-            pluginMessage: {
-              type: "populate",
-              text: textarea.value
-            }
-          },
-          "*"
-        );
+      // ---------- Tabs ----------
+      var tabButtons = document.querySelectorAll(".segmented button");
+      var tabs = document.querySelectorAll(".tab");
+      tabButtons.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var name = btn.getAttribute("data-tab");
+          tabButtons.forEach(function (b) { b.classList.toggle("active", b === btn); });
+          tabs.forEach(function (t) {
+            t.classList.toggle("active", t.getAttribute("data-tab") === name);
+          });
+          updateAllButtons();
+        });
       });
 
-      window.onmessage = (event) => {
-        const message = event.data.pluginMessage;
-        if (message && message.type === "populate-result") {
-          updateButtonState();
+      // ---------- Mode #1: Paste ----------
+      var pasteInput = document.getElementById("paste-input");
+      var pasteBtn = document.getElementById("paste-populate");
+
+      function pasteLines() {
+        return pasteInput.value.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+      }
+
+      pasteInput.addEventListener("input", updateAllButtons);
+      pasteBtn.addEventListener("click", function () {
+        pasteBtn.disabled = true;
+        parent.postMessage({ pluginMessage: { type: "populate-lines", text: pasteInput.value } }, "*");
+      });
+
+      // ---------- Shared: build mapping UI ----------
+      // fields = array of column/field names; container = mapping element.
+      // Returns a function that reads the current mapping object.
+      function buildMapping(container, fields) {
+        container.innerHTML = "";
+        if (!fields.length) {
+          container.style.display = "none";
+          return;
+        }
+        container.style.display = "block";
+
+        fields.forEach(function (field) {
+          var rowEl = document.createElement("div");
+          rowEl.className = "map-row";
+
+          var name = document.createElement("div");
+          name.className = "fieldname";
+          name.textContent = field;
+          name.title = field;
+
+          var arrow = document.createElement("span");
+          arrow.className = "arrow";
+          arrow.textContent = "→";
+
+          var select = document.createElement("select");
+          select.setAttribute("data-field", field);
+          var none = document.createElement("option");
+          none.value = "";
+          none.textContent = "— skip —";
+          select.appendChild(none);
+
+          textLayers.forEach(function (layer) {
+            var opt = document.createElement("option");
+            opt.value = layer;
+            opt.textContent = layer;
+            // Auto-match when field name equals layer name.
+            if (layer.toLowerCase() === field.toLowerCase()) opt.selected = true;
+            select.appendChild(opt);
+          });
+
+          rowEl.appendChild(name);
+          rowEl.appendChild(arrow);
+          rowEl.appendChild(select);
+          container.appendChild(rowEl);
+        });
+      }
+
+      function readMapping(container) {
+        var mapping = {};
+        container.querySelectorAll("select").forEach(function (sel) {
+          if (sel.value) mapping[sel.getAttribute("data-field")] = sel.value;
+        });
+        return mapping;
+      }
+
+      // ---------- Mode #2: Google Sheet ----------
+      var sheetUrl = document.getElementById("sheet-url");
+      var sheetTab = document.getElementById("sheet-tab");
+      var sheetFetch = document.getElementById("sheet-fetch");
+      var sheetStatus = document.getElementById("sheet-status");
+      var sheetMapping = document.getElementById("sheet-mapping");
+      var sheetBtn = document.getElementById("sheet-populate");
+
+      function setStatus(el, text, kind) {
+        el.textContent = text;
+        el.className = "status" + (kind ? " " + kind : "");
+      }
+
+      function parseSheetId(url) {
+        var m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+        return m ? m[1] : null;
+      }
+
+      // Parse the gviz JSON-ish response: google.visualization.Query.setResponse({...});
+      function parseGviz(text) {
+        var start = text.indexOf("{");
+        var end = text.lastIndexOf("}");
+        if (start === -1 || end === -1) throw new Error("Unexpected response from Google.");
+        var json = JSON.parse(text.substring(start, end + 1));
+        if (json.status === "error") {
+          var msg = (json.errors && json.errors[0] && json.errors[0].detailed_message) || "Sheet error.";
+          throw new Error(msg);
+        }
+        var cols = json.table.cols.map(function (c, i) {
+          return (c.label && c.label.trim()) || ("Column " + (i + 1));
+        });
+        var records = json.table.rows.map(function (r) {
+          var obj = {};
+          r.c.forEach(function (cell, i) {
+            obj[cols[i]] = cell ? (cell.f != null ? cell.f : cell.v) : "";
+            if (obj[cols[i]] == null) obj[cols[i]] = "";
+          });
+          return obj;
+        });
+        return { fields: cols, records: records };
+      }
+
+      sheetFetch.addEventListener("click", function () {
+        var id = parseSheetId(sheetUrl.value.trim());
+        if (!id) {
+          setStatus(sheetStatus, "Could not find a sheet ID in that URL.", "error");
+          return;
+        }
+        setStatus(sheetStatus, "Fetching…");
+        sheetFetch.disabled = true;
+
+        var endpoint =
+          "https://docs.google.com/spreadsheets/d/" + id + "/gviz/tq?tqx=out:json";
+        if (sheetTab.value.trim()) {
+          endpoint += "&sheet=" + encodeURIComponent(sheetTab.value.trim());
         }
 
-        if (message && message.type === "selection-state") {
+        fetch(endpoint)
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status + " — is the sheet shared publicly?");
+            return res.text();
+          })
+          .then(function (text) {
+            var parsed = parseGviz(text);
+            sheetRecords = parsed.records;
+            buildMapping(sheetMapping, parsed.fields);
+            setStatus(sheetStatus, "Loaded " + parsed.records.length + " rows, " + parsed.fields.length + " columns.", "ok");
+            updateAllButtons();
+          })
+          .catch(function (err) {
+            sheetRecords = [];
+            sheetMapping.style.display = "none";
+            setStatus(sheetStatus, err.message || "Failed to fetch.", "error");
+            updateAllButtons();
+          })
+          .then(function () { sheetFetch.disabled = false; });
+      });
+
+      sheetBtn.addEventListener("click", function () {
+        sheetBtn.disabled = true;
+        parent.postMessage({
+          pluginMessage: {
+            type: "populate-records",
+            records: sheetRecords,
+            mapping: readMapping(sheetMapping)
+          }
+        }, "*");
+      });
+
+      // ---------- Mode #3: JSON API ----------
+      var apiUrl = document.getElementById("api-url");
+      var apiPath = document.getElementById("api-path");
+      var apiFetch = document.getElementById("api-fetch");
+      var apiStatus = document.getElementById("api-status");
+      var apiMapping = document.getElementById("api-mapping");
+      var apiBtn = document.getElementById("api-populate");
+
+      function resolvePath(obj, path) {
+        if (!path) return obj;
+        return path.split(".").reduce(function (acc, key) {
+          return acc == null ? acc : acc[key];
+        }, obj);
+      }
+
+      // Flatten one level of nested objects so dotted keys become mappable fields.
+      function fieldsFromRecords(records) {
+        var fields = [];
+        records.slice(0, 20).forEach(function (rec) {
+          Object.keys(rec).forEach(function (k) {
+            if (fields.indexOf(k) === -1) fields.push(k);
+          });
+        });
+        return fields;
+      }
+
+      apiFetch.addEventListener("click", function () {
+        var url = apiUrl.value.trim();
+        if (!url) {
+          setStatus(apiStatus, "Enter an API URL.", "error");
+          return;
+        }
+        setStatus(apiStatus, "Fetching…");
+        apiFetch.disabled = true;
+
+        fetch(url)
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+          })
+          .then(function (json) {
+            var arr = resolvePath(json, apiPath.value.trim());
+            if (!Array.isArray(arr)) {
+              throw new Error("Response at that path is not an array.");
+            }
+            // Coerce primitive arrays into objects so they're mappable.
+            apiRecords = arr.map(function (item) {
+              return (item && typeof item === "object") ? item : { value: item };
+            });
+            var fields = fieldsFromRecords(apiRecords);
+            buildMapping(apiMapping, fields);
+            setStatus(apiStatus, "Loaded " + apiRecords.length + " records, " + fields.length + " fields.", "ok");
+            updateAllButtons();
+          })
+          .catch(function (err) {
+            apiRecords = [];
+            apiMapping.style.display = "none";
+            setStatus(apiStatus, err.message || "Failed to fetch.", "error");
+            updateAllButtons();
+          })
+          .then(function () { apiFetch.disabled = false; });
+      });
+
+      apiBtn.addEventListener("click", function () {
+        apiBtn.disabled = true;
+        parent.postMessage({
+          pluginMessage: {
+            type: "populate-records",
+            records: apiRecords,
+            mapping: readMapping(apiMapping)
+          }
+        }, "*");
+      });
+
+      // ---------- Button enabling ----------
+      function updateAllButtons() {
+        pasteBtn.disabled = pasteLines().length === 0 || !hasValidSelection;
+        sheetBtn.disabled = sheetRecords.length === 0 || !hasValidSelection;
+        apiBtn.disabled = apiRecords.length === 0 || !hasValidSelection;
+      }
+
+      // ---------- Resize handle ----------
+      var resizeHandle = document.getElementById("resize-handle");
+      resizeHandle.addEventListener("pointerdown", function (downEvent) {
+        downEvent.preventDefault();
+        resizeHandle.setPointerCapture(downEvent.pointerId);
+
+        function onMove(moveEvent) {
+          // window.inner* tracks the live frame size during the drag.
+          parent.postMessage({
+            pluginMessage: {
+              type: "resize",
+              width: Math.ceil(moveEvent.clientX + 4),
+              height: Math.ceil(moveEvent.clientY + 4)
+            }
+          }, "*");
+        }
+
+        function onUp(upEvent) {
+          resizeHandle.releasePointerCapture(downEvent.pointerId);
+          resizeHandle.removeEventListener("pointermove", onMove);
+          resizeHandle.removeEventListener("pointerup", onUp);
+        }
+
+        resizeHandle.addEventListener("pointermove", onMove);
+        resizeHandle.addEventListener("pointerup", onUp);
+      });
+
+      // ---------- Messages from the plugin ----------
+      window.onmessage = function (event) {
+        var message = event.data.pluginMessage;
+        if (!message) return;
+
+        if (message.type === "populate-result") {
+          updateAllButtons();
+        }
+
+        if (message.type === "selection-state") {
           hasValidSelection = message.hasValidSelection;
-          updateButtonState();
+          textLayers = message.textLayers || [];
+          // Rebuild mappings so dropdowns reflect the new selection's layers.
+          if (sheetRecords.length) buildMapping(sheetMapping, fieldsFromRecords(sheetRecords));
+          if (apiRecords.length) buildMapping(apiMapping, fieldsFromRecords(apiRecords));
+          updateAllButtons();
         }
       };
     </script>

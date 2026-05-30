@@ -3,5 +3,9 @@
   "api": "1.0.0",
   "main": "code.js",
   "ui": "ui.html",
-  "editorType": ["figma"]
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["*"],
+    "reasoning": "Fetches data from Google Sheets (gviz endpoint) and user-provided JSON APIs to populate designs."
+  }
 }
