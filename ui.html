@@ -15,7 +15,7 @@
         overflow: hidden;
         color: #1f2933;
         font: 12px Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: #f7f8fa;
+        background: #ffffff;
       }
 
       .plugin {
@@ -162,6 +162,24 @@
         gap: 10px;
       }
 
+      /* Empty-state placeholder shown before Fetch (mirrors the Paste textarea) */
+      .placeholder {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 16px;
+        border: 0;
+        border-radius: 6px;
+        background: #f5f6f7;
+        color: #98a2b3;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .placeholder[hidden],
       .preview[hidden] {
         display: none;
       }
@@ -175,17 +193,17 @@
 
       /* Mapping list */
       .mapping {
-        border: 1px solid #e4e7ec;
+        border: 0;
         border-radius: 6px;
-        background: #ffffff;
+        background: #f5f6f7;
         padding: 8px;
       }
 
       /* Data table preview */
       .table-wrap {
-        border: 1px solid #e4e7ec;
+        border: 0;
         border-radius: 6px;
-        background: #ffffff;
+        background: #f5f6f7;
         overflow: auto;
         max-height: 220px;
       }
@@ -327,6 +345,10 @@
           <button id="sheet-fetch" class="secondary">Fetch</button>
         </div>
         <div class="status" id="sheet-status"></div>
+        <div class="placeholder" id="sheet-placeholder">
+          Paste a Google Sheet link above and hit Fetch.<br />
+          A preview of your rows and column mapping will appear here.
+        </div>
         <div class="preview" id="sheet-preview" hidden>
           <div>
             <p class="preview-section-label">Map columns → layers</p>
@@ -353,6 +375,10 @@
           <div class="hint">Returns the records as JSON. The list of items is found automatically.</div>
         </div>
         <div class="status" id="api-status"></div>
+        <div class="placeholder" id="api-placeholder">
+          Enter an API URL above and hit Fetch.<br />
+          A preview of the records and field mapping will appear here.
+        </div>
         <div class="preview" id="api-preview" hidden>
           <div>
             <p class="preview-section-label">Map fields → layers</p>
@@ -528,6 +554,7 @@
       var sheetMapping = document.getElementById("sheet-mapping");
       var sheetTable = document.getElementById("sheet-table");
       var sheetPreview = document.getElementById("sheet-preview");
+      var sheetPlaceholder = document.getElementById("sheet-placeholder");
       var sheetBtn = document.getElementById("sheet-populate");
       var sheetFields = [];
 
@@ -595,6 +622,7 @@
             buildMapping(sheetMapping, sheetFields, sheetRecords);
             buildTable(sheetTable, sheetFields, sheetRecords);
             sheetPreview.hidden = false;
+            sheetPlaceholder.hidden = true;
             setStatus(sheetStatus, "Loaded " + parsed.records.length + " rows, " + parsed.fields.length + " columns.", "ok");
             updateAllButtons();
           })
@@ -602,6 +630,7 @@
             sheetRecords = [];
             sheetFields = [];
             sheetPreview.hidden = true;
+            sheetPlaceholder.hidden = false;
             setStatus(sheetStatus, err.message || "Failed to fetch.", "error");
             updateAllButtons();
           })
@@ -626,6 +655,7 @@
       var apiMapping = document.getElementById("api-mapping");
       var apiTable = document.getElementById("api-table");
       var apiPreview = document.getElementById("api-preview");
+      var apiPlaceholder = document.getElementById("api-placeholder");
       var apiBtn = document.getElementById("api-populate");
       var apiFields = [];
 
@@ -692,6 +722,7 @@
             buildMapping(apiMapping, apiFields, apiRecords);
             buildTable(apiTable, apiFields, apiRecords);
             apiPreview.hidden = false;
+            apiPlaceholder.hidden = true;
             setStatus(apiStatus, "Loaded " + apiRecords.length + " records, " + apiFields.length + " fields.", "ok");
             updateAllButtons();
           })
@@ -699,6 +730,7 @@
             apiRecords = [];
             apiFields = [];
             apiPreview.hidden = true;
+            apiPlaceholder.hidden = false;
             setStatus(apiStatus, err.message || "Failed to fetch.", "error");
             updateAllButtons();
           })
