@@ -191,6 +191,30 @@
         margin: 0 0 2px;
       }
 
+      /* Sheet tab chips */
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .chip {
+        height: 26px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: 13px;
+        background: #f5f6f7;
+        color: #4b5563;
+        font: 600 11px Inter, system-ui, sans-serif;
+        cursor: pointer;
+        width: auto;
+      }
+
+      .chip.active {
+        background: #18a0fb;
+        color: #ffffff;
+      }
+
       /* Mapping list */
       .mapping {
         border: 0;
@@ -289,7 +313,11 @@
       .status {
         font-size: 10px;
         color: #6b7280;
-        min-height: 12px;
+      }
+
+      /* Don't take up vertical space (and a tab gap) when there's no message */
+      .status:empty {
+        display: none;
       }
 
       .status.error {
@@ -337,11 +365,10 @@
       <div class="tab" data-tab="sheet">
         <div class="field">
           <label>Google Sheet URL</label>
-          <input id="sheet-url" type="url" placeholder="https://docs.google.com/spreadsheets/d/..." />
-        </div>
-        <div class="row field">
-          <input id="sheet-tab" type="text" placeholder="Tab name (optional)" />
-          <button id="sheet-fetch" class="secondary">Fetch</button>
+          <div class="row">
+            <input id="sheet-url" type="url" placeholder="https://docs.google.com/spreadsheets/d/..." />
+            <button id="sheet-fetch" class="secondary">Fetch</button>
+          </div>
         </div>
         <div class="status" id="sheet-status"></div>
         <div class="placeholder" id="sheet-placeholder">
@@ -350,6 +377,10 @@
           A preview of your rows and column mapping will appear here.
         </div>
         <div class="preview" id="sheet-preview" hidden>
+          <div id="sheet-tabs-wrap" hidden>
+            <p class="preview-section-label">Sheet tab</p>
+            <div class="chips" id="sheet-tabs"></div>
+          </div>
           <div>
             <p class="preview-section-label">Map columns → layers</p>
             <div class="mapping" id="sheet-mapping"></div>
@@ -419,7 +450,6 @@
               type: "save-inputs",
               inputs: {
                 sheetUrl: document.getElementById("sheet-url").value,
-                sheetTab: document.getElementById("sheet-tab").value,
                 apiUrl: document.getElementById("api-url").value
               }
             }
@@ -548,18 +578,21 @@
 
       // ---------- Mode #2: Google Sheet ----------
       var sheetUrl = document.getElementById("sheet-url");
-      var sheetTab = document.getElementById("sheet-tab");
       var sheetFetch = document.getElementById("sheet-fetch");
       var sheetStatus = document.getElementById("sheet-status");
       var sheetMapping = document.getElementById("sheet-mapping");
       var sheetTable = document.getElementById("sheet-table");
       var sheetPreview = document.getElementById("sheet-preview");
       var sheetPlaceholder = document.getElementById("sheet-placeholder");
+      var sheetTabsWrap = document.getElementById("sheet-tabs-wrap");
+      var sheetTabsEl = document.getElementById("sheet-tabs");
       var sheetBtn = document.getElementById("sheet-populate");
       var sheetFields = [];
+      var sheetId = null;
+      var sheetTabList = [];   // [{ name, gid }] discovered from the sheet
+      var sheetActiveGid = null;
 
       sheetUrl.addEventListener("input", saveInputs);
-      sheetTab.addEventListener("input", saveInputs);
 
       function setStatus(el, text, kind) {
         el.textContent = text;
@@ -569,6 +602,52 @@
       function parseSheetId(url) {
         var m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
         return m ? m[1] : null;
+      }
+
+      // Pull { gid -> name } for every tab out of the sheet's HTML bootstrap.
+      // Google embeds a `bootstrapData` blob containing each sheet's name + gid.
+      function parseSheetTabs(html) {
+        var tabs = [];
+        var seen = {};
+        // Matches "...","<gid>","<name>",... style entries in the bootstrap.
+        var re = /"name":"((?:[^"\\]|\\.)*)"[^}]*?"sheetId":(\d+)|"sheetId":(\d+)[^}]*?"name":"((?:[^"\\]|\\.)*)"/g;
+        var m;
+        while ((m = re.exec(html))) {
+          var name = m[1] != null ? m[1] : m[4];
+          var gid = m[2] != null ? m[2] : m[3];
+          if (!name || gid == null) continue;
+          try { name = JSON.parse('"' + name + '"'); } catch (e) {}
+          if (!seen[gid]) { seen[gid] = true; tabs.push({ name: name, gid: gid }); }
+        }
+        return tabs;
+      }
+
+      // Best-effort: discover the sheet's tabs (no API key). Resolves to a
+      // list (possibly empty if discovery fails — fetch still works).
+      function discoverSheetTabs(id) {
+        return fetch("https://docs.google.com/spreadsheets/d/" + id + "/htmlview")
+          .then(function (res) { return res.ok ? res.text() : ""; })
+          .then(function (html) { return parseSheetTabs(html); })
+          .catch(function () { return []; });
+      }
+
+      function renderSheetTabs() {
+        sheetTabsEl.innerHTML = "";
+        if (sheetTabList.length < 2) {
+          sheetTabsWrap.hidden = true;
+          return;
+        }
+        sheetTabsWrap.hidden = false;
+        sheetTabList.forEach(function (tab) {
+          var chip = document.createElement("button");
+          chip.className = "chip" + (tab.gid === sheetActiveGid ? " active" : "");
+          chip.textContent = tab.name;
+          chip.addEventListener("click", function () {
+            if (tab.gid === sheetActiveGid) return;
+            fetchSheetData(tab.gid);
+          });
+          sheetTabsEl.appendChild(chip);
+        });
       }
 
       // Parse the gviz JSON-ish response: google.visualization.Query.setResponse({...});
@@ -595,22 +674,18 @@
         return { fields: cols, records: records };
       }
 
-      sheetFetch.addEventListener("click", function () {
-        var id = parseSheetId(sheetUrl.value.trim());
-        if (!id) {
-          setStatus(sheetStatus, "Could not find a sheet ID in that URL.", "error");
-          return;
-        }
+      // Fetch one tab's data via gviz. gid is optional (null = default tab).
+      function fetchSheetData(gid) {
         setStatus(sheetStatus, "Fetching…");
         sheetFetch.disabled = true;
+        sheetActiveGid = gid;
+        renderSheetTabs();
 
         var endpoint =
-          "https://docs.google.com/spreadsheets/d/" + id + "/gviz/tq?tqx=out:json";
-        if (sheetTab.value.trim()) {
-          endpoint += "&sheet=" + encodeURIComponent(sheetTab.value.trim());
-        }
+          "https://docs.google.com/spreadsheets/d/" + sheetId + "/gviz/tq?tqx=out:json";
+        if (gid != null) endpoint += "&gid=" + encodeURIComponent(gid);
 
-        fetch(endpoint)
+        return fetch(endpoint)
           .then(function (res) {
             if (!res.ok) throw new Error("HTTP " + res.status + " — is the sheet shared publicly?");
             return res.text();
@@ -635,6 +710,24 @@
             updateAllButtons();
           })
           .then(function () { sheetFetch.disabled = false; });
+      }
+
+      sheetFetch.addEventListener("click", function () {
+        var id = parseSheetId(sheetUrl.value.trim());
+        if (!id) {
+          setStatus(sheetStatus, "Could not find a sheet ID in that URL.", "error");
+          return;
+        }
+        sheetId = id;
+        setStatus(sheetStatus, "Fetching…");
+        sheetFetch.disabled = true;
+
+        // Discover all tabs (best effort), then load the first one.
+        discoverSheetTabs(id).then(function (tabs) {
+          sheetTabList = tabs;
+          var firstGid = tabs.length ? tabs[0].gid : null;
+          fetchSheetData(firstGid);
+        });
       });
 
       sheetBtn.addEventListener("click", function () {
@@ -793,7 +886,6 @@
 
         if (message.type === "restore-inputs" && message.inputs) {
           if (message.inputs.sheetUrl != null) sheetUrl.value = message.inputs.sheetUrl;
-          if (message.inputs.sheetTab != null) sheetTab.value = message.inputs.sheetTab;
           if (message.inputs.apiUrl != null) apiUrl.value = message.inputs.apiUrl;
         }
 
