@@ -338,7 +338,6 @@
         <div class="field">
           <label>Google Sheet URL</label>
           <input id="sheet-url" type="url" placeholder="https://docs.google.com/spreadsheets/d/..." />
-          <div class="hint">Share the sheet as "Anyone with the link can view". First row = column names.</div>
         </div>
         <div class="row field">
           <input id="sheet-tab" type="text" placeholder="Tab name (optional)" />
@@ -347,6 +346,7 @@
         <div class="status" id="sheet-status"></div>
         <div class="placeholder" id="sheet-placeholder">
           Paste a Google Sheet link above and hit Fetch.<br />
+          Share the sheet as "Anyone with the link can view". The first row is used as column names.<br />
           A preview of your rows and column mapping will appear here.
         </div>
         <div class="preview" id="sheet-preview" hidden>
@@ -372,11 +372,11 @@
             <input id="api-url" type="url" placeholder="https://api.example.com/items" />
             <button id="api-fetch" class="secondary">Fetch</button>
           </div>
-          <div class="hint">Returns the records as JSON. The list of items is found automatically.</div>
         </div>
         <div class="status" id="api-status"></div>
         <div class="placeholder" id="api-placeholder">
           Enter an API URL above and hit Fetch.<br />
+          The endpoint should return JSON. The list of records is found automatically.<br />
           A preview of the records and field mapping will appear here.
         </div>
         <div class="preview" id="api-preview" hidden>
