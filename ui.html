@@ -114,6 +114,12 @@
         flex: 1;
       }
 
+      /* Fetch buttons sit snug next to their input, sized to content */
+      .row > button.secondary {
+        flex: 0 0 auto;
+        padding: 0 16px;
+      }
+
       button.primary,
       button.secondary {
         height: 36px;
@@ -251,15 +257,11 @@
       <div class="tab" data-tab="api">
         <div class="field">
           <label>API URL</label>
-          <input id="api-url" type="url" placeholder="https://api.example.com/items" />
-        </div>
-        <div class="field">
-          <label>Array path (optional)</label>
-          <input id="api-path" type="text" placeholder="e.g. data.items — leave blank if root is an array" />
-          <div class="hint">Dot path to the array of records inside the response.</div>
-        </div>
-        <div class="row field">
-          <button id="api-fetch" class="secondary">Fetch</button>
+          <div class="row">
+            <input id="api-url" type="url" placeholder="https://api.example.com/items" />
+            <button id="api-fetch" class="secondary">Fetch</button>
+          </div>
+          <div class="hint">Returns the records as JSON. The list of items is found automatically.</div>
         </div>
         <div class="status" id="api-status"></div>
         <div class="mapping" id="api-mapping" style="display:none"></div>
@@ -280,6 +282,24 @@
       // Holds parsed records per mode so we can build mappings.
       var sheetRecords = [];
       var apiRecords = [];
+
+      // ---------- Persist field values ----------
+      var saveTimer = null;
+      function saveInputs() {
+        if (saveTimer) clearTimeout(saveTimer);
+        saveTimer = setTimeout(function () {
+          parent.postMessage({
+            pluginMessage: {
+              type: "save-inputs",
+              inputs: {
+                sheetUrl: document.getElementById("sheet-url").value,
+                sheetTab: document.getElementById("sheet-tab").value,
+                apiUrl: document.getElementById("api-url").value
+              }
+            }
+          }, "*");
+        }, 300);
+      }
 
       // ---------- Tabs ----------
       var tabButtons = document.querySelectorAll(".segmented button");
@@ -372,6 +392,9 @@
       var sheetMapping = document.getElementById("sheet-mapping");
       var sheetBtn = document.getElementById("sheet-populate");
 
+      sheetUrl.addEventListener("input", saveInputs);
+      sheetTab.addEventListener("input", saveInputs);
+
       function setStatus(el, text, kind) {
         el.textContent = text;
         el.className = "status" + (kind ? " " + kind : "");
@@ -455,17 +478,34 @@
 
       // ---------- Mode #3: JSON API ----------
       var apiUrl = document.getElementById("api-url");
-      var apiPath = document.getElementById("api-path");
       var apiFetch = document.getElementById("api-fetch");
       var apiStatus = document.getElementById("api-status");
       var apiMapping = document.getElementById("api-mapping");
       var apiBtn = document.getElementById("api-populate");
 
-      function resolvePath(obj, path) {
-        if (!path) return obj;
-        return path.split(".").reduce(function (acc, key) {
-          return acc == null ? acc : acc[key];
-        }, obj);
+      apiUrl.addEventListener("input", saveInputs);
+
+      // Find the records array anywhere in the response: if the root is an
+      // array use it, otherwise breadth-first search for the first array
+      // (preferring arrays of objects, e.g. { data: { items: [...] } }).
+      function findRecordsArray(json) {
+        if (Array.isArray(json)) return json;
+        var queue = [json];
+        var fallback = null;
+        while (queue.length) {
+          var node = queue.shift();
+          if (!node || typeof node !== "object") continue;
+          for (var key in node) {
+            var val = node[key];
+            if (Array.isArray(val)) {
+              if (val.length && val[0] && typeof val[0] === "object") return val;
+              if (!fallback) fallback = val;
+            } else if (val && typeof val === "object") {
+              queue.push(val);
+            }
+          }
+        }
+        return fallback;
       }
 
       // Flatten one level of nested objects so dotted keys become mappable fields.
@@ -494,9 +534,9 @@
             return res.json();
           })
           .then(function (json) {
-            var arr = resolvePath(json, apiPath.value.trim());
+            var arr = findRecordsArray(json);
             if (!Array.isArray(arr)) {
-              throw new Error("Response at that path is not an array.");
+              throw new Error("Couldn't find a list of records in the response.");
             }
             // Coerce primitive arrays into objects so they're mappable.
             apiRecords = arr.map(function (item) {
@@ -568,6 +608,12 @@
 
         if (message.type === "populate-result") {
           updateAllButtons();
+        }
+
+        if (message.type === "restore-inputs" && message.inputs) {
+          if (message.inputs.sheetUrl != null) sheetUrl.value = message.inputs.sheetUrl;
+          if (message.inputs.sheetTab != null) sheetTab.value = message.inputs.sheetTab;
+          if (message.inputs.apiUrl != null) apiUrl.value = message.inputs.apiUrl;
         }
 
         if (message.type === "selection-state") {

@@ -8,6 +8,14 @@ figma.clientStorage.getAsync(SAVED_SIZE_KEY).then((size) => {
   }
 });
 
+// Restore the user's saved field values (sheet URL, tab, API URL).
+const SAVED_INPUTS_KEY = "populator-inputs";
+figma.clientStorage.getAsync(SAVED_INPUTS_KEY).then((inputs) => {
+  if (inputs) {
+    figma.ui.postMessage({ type: "restore-inputs", inputs });
+  }
+});
+
 function getSelectedSourceNode() {
   const selection = figma.currentPage.selection;
 
@@ -163,6 +171,12 @@ figma.ui.onmessage = async (message) => {
     const height = Math.max(380, Math.round(message.height));
     figma.ui.resize(width, height);
     figma.clientStorage.setAsync(SAVED_SIZE_KEY, { width, height });
+    return;
+  }
+
+  // Persist the field values so they survive plugin restarts.
+  if (message.type === "save-inputs") {
+    figma.clientStorage.setAsync(SAVED_INPUTS_KEY, message.inputs || {});
     return;
   }
 
