@@ -123,11 +123,17 @@
       button.primary,
       button.secondary {
         height: 36px;
+        width: 100%;
         border: 0;
         border-radius: 6px;
         font: 600 12px Inter, system-ui, sans-serif;
         cursor: pointer;
         flex: 0 0 auto;
+      }
+
+      /* Fetch buttons in a row shouldn't stretch full width */
+      .row button.secondary {
+        width: auto;
       }
 
       button.primary {
@@ -146,15 +152,87 @@
         cursor: default;
       }
 
-      /* Mapping list */
-      .mapping {
+      /* Scrolling preview area between the inputs and the pinned button */
+      .preview {
         flex: 1;
         min-height: 0;
         overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .preview[hidden] {
+        display: none;
+      }
+
+      .preview-section-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: #4b5563;
+        margin: 0 0 2px;
+      }
+
+      /* Mapping list */
+      .mapping {
         border: 1px solid #e4e7ec;
         border-radius: 6px;
         background: #ffffff;
         padding: 8px;
+      }
+
+      /* Data table preview */
+      .table-wrap {
+        border: 1px solid #e4e7ec;
+        border-radius: 6px;
+        background: #ffffff;
+        overflow: auto;
+        max-height: 220px;
+      }
+
+      table.preview-table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 11px;
+      }
+
+      table.preview-table th,
+      table.preview-table td {
+        text-align: left;
+        padding: 5px 8px;
+        border-bottom: 1px solid #f1f3f5;
+        white-space: nowrap;
+        max-width: 160px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      table.preview-table th {
+        position: sticky;
+        top: 0;
+        background: #f7f8fa;
+        font-weight: 600;
+        color: #374151;
+        z-index: 1;
+      }
+
+      table.preview-table tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .map-row .sample {
+        flex: 0 0 auto;
+        max-width: 90px;
+        font-size: 10px;
+        color: #9ca3af;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* Pin the populate button to the bottom of each tab */
+      .footer {
+        flex: 0 0 auto;
       }
 
       .map-row {
@@ -249,8 +327,19 @@
           <button id="sheet-fetch" class="secondary">Fetch</button>
         </div>
         <div class="status" id="sheet-status"></div>
-        <div class="mapping" id="sheet-mapping" style="display:none"></div>
-        <button id="sheet-populate" class="primary" disabled>Populate</button>
+        <div class="preview" id="sheet-preview" hidden>
+          <div>
+            <p class="preview-section-label">Map columns → layers</p>
+            <div class="mapping" id="sheet-mapping"></div>
+          </div>
+          <div>
+            <p class="preview-section-label">Data preview</p>
+            <div class="table-wrap" id="sheet-table"></div>
+          </div>
+        </div>
+        <div class="footer">
+          <button id="sheet-populate" class="primary" disabled>Populate</button>
+        </div>
       </div>
 
       <!-- Mode #3: JSON API -->
@@ -264,8 +353,19 @@
           <div class="hint">Returns the records as JSON. The list of items is found automatically.</div>
         </div>
         <div class="status" id="api-status"></div>
-        <div class="mapping" id="api-mapping" style="display:none"></div>
-        <button id="api-populate" class="primary" disabled>Populate</button>
+        <div class="preview" id="api-preview" hidden>
+          <div>
+            <p class="preview-section-label">Map fields → layers</p>
+            <div class="mapping" id="api-mapping"></div>
+          </div>
+          <div>
+            <p class="preview-section-label">Data preview</p>
+            <div class="table-wrap" id="api-table"></div>
+          </div>
+        </div>
+        <div class="footer">
+          <button id="api-populate" class="primary" disabled>Populate</button>
+        </div>
       </div>
     </div>
 
@@ -330,15 +430,11 @@
       });
 
       // ---------- Shared: build mapping UI ----------
-      // fields = array of column/field names; container = mapping element.
-      // Returns a function that reads the current mapping object.
-      function buildMapping(container, fields) {
+      // fields = array of column/field names; container = mapping element;
+      // records = parsed rows (used to show a sample value per field).
+      function buildMapping(container, fields, records) {
         container.innerHTML = "";
-        if (!fields.length) {
-          container.style.display = "none";
-          return;
-        }
-        container.style.display = "block";
+        var sampleRow = (records && records[0]) || {};
 
         fields.forEach(function (field) {
           var rowEl = document.createElement("div");
@@ -369,11 +465,51 @@
             select.appendChild(opt);
           });
 
+          var sample = document.createElement("span");
+          sample.className = "sample";
+          var sv = sampleRow[field];
+          sample.textContent = sv == null || sv === "" ? "" : "“" + String(sv) + "”";
+          sample.title = sample.textContent;
+
           rowEl.appendChild(name);
           rowEl.appendChild(arrow);
           rowEl.appendChild(select);
+          rowEl.appendChild(sample);
           container.appendChild(rowEl);
         });
+      }
+
+      // Render a scrollable table preview of the fetched records.
+      function buildTable(container, fields, records) {
+        container.innerHTML = "";
+        var table = document.createElement("table");
+        table.className = "preview-table";
+
+        var thead = document.createElement("thead");
+        var headRow = document.createElement("tr");
+        fields.forEach(function (field) {
+          var th = document.createElement("th");
+          th.textContent = field;
+          th.title = field;
+          headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        var tbody = document.createElement("tbody");
+        records.slice(0, 50).forEach(function (rec) {
+          var tr = document.createElement("tr");
+          fields.forEach(function (field) {
+            var td = document.createElement("td");
+            var v = rec[field];
+            td.textContent = v == null ? "" : String(v);
+            td.title = td.textContent;
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        container.appendChild(table);
       }
 
       function readMapping(container) {
@@ -390,7 +526,10 @@
       var sheetFetch = document.getElementById("sheet-fetch");
       var sheetStatus = document.getElementById("sheet-status");
       var sheetMapping = document.getElementById("sheet-mapping");
+      var sheetTable = document.getElementById("sheet-table");
+      var sheetPreview = document.getElementById("sheet-preview");
       var sheetBtn = document.getElementById("sheet-populate");
+      var sheetFields = [];
 
       sheetUrl.addEventListener("input", saveInputs);
       sheetTab.addEventListener("input", saveInputs);
@@ -452,13 +591,17 @@
           .then(function (text) {
             var parsed = parseGviz(text);
             sheetRecords = parsed.records;
-            buildMapping(sheetMapping, parsed.fields);
+            sheetFields = parsed.fields;
+            buildMapping(sheetMapping, sheetFields, sheetRecords);
+            buildTable(sheetTable, sheetFields, sheetRecords);
+            sheetPreview.hidden = false;
             setStatus(sheetStatus, "Loaded " + parsed.records.length + " rows, " + parsed.fields.length + " columns.", "ok");
             updateAllButtons();
           })
           .catch(function (err) {
             sheetRecords = [];
-            sheetMapping.style.display = "none";
+            sheetFields = [];
+            sheetPreview.hidden = true;
             setStatus(sheetStatus, err.message || "Failed to fetch.", "error");
             updateAllButtons();
           })
@@ -481,7 +624,10 @@
       var apiFetch = document.getElementById("api-fetch");
       var apiStatus = document.getElementById("api-status");
       var apiMapping = document.getElementById("api-mapping");
+      var apiTable = document.getElementById("api-table");
+      var apiPreview = document.getElementById("api-preview");
       var apiBtn = document.getElementById("api-populate");
+      var apiFields = [];
 
       apiUrl.addEventListener("input", saveInputs);
 
@@ -542,14 +688,17 @@
             apiRecords = arr.map(function (item) {
               return (item && typeof item === "object") ? item : { value: item };
             });
-            var fields = fieldsFromRecords(apiRecords);
-            buildMapping(apiMapping, fields);
-            setStatus(apiStatus, "Loaded " + apiRecords.length + " records, " + fields.length + " fields.", "ok");
+            apiFields = fieldsFromRecords(apiRecords);
+            buildMapping(apiMapping, apiFields, apiRecords);
+            buildTable(apiTable, apiFields, apiRecords);
+            apiPreview.hidden = false;
+            setStatus(apiStatus, "Loaded " + apiRecords.length + " records, " + apiFields.length + " fields.", "ok");
             updateAllButtons();
           })
           .catch(function (err) {
             apiRecords = [];
-            apiMapping.style.display = "none";
+            apiFields = [];
+            apiPreview.hidden = true;
             setStatus(apiStatus, err.message || "Failed to fetch.", "error");
             updateAllButtons();
           })
@@ -620,8 +769,8 @@
           hasValidSelection = message.hasValidSelection;
           textLayers = message.textLayers || [];
           // Rebuild mappings so dropdowns reflect the new selection's layers.
-          if (sheetRecords.length) buildMapping(sheetMapping, fieldsFromRecords(sheetRecords));
-          if (apiRecords.length) buildMapping(apiMapping, fieldsFromRecords(apiRecords));
+          if (sheetRecords.length) buildMapping(sheetMapping, sheetFields, sheetRecords);
+          if (apiRecords.length) buildMapping(apiMapping, apiFields, apiRecords);
           updateAllButtons();
         }
       };
