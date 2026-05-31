@@ -784,12 +784,13 @@
         setStatus(sheetStatus, "Fetching…");
         sheetFetch.disabled = true;
 
-        // CSV export sends permissive CORS headers (gviz does not), so this is
-        // the one Google endpoint a plugin can actually reach. A #gid in the URL
-        // selects a specific tab; otherwise the first tab is used.
+        // Use the gviz CSV endpoint, NOT /export?format=csv: export issues a
+        // 302 redirect that Figma's sandboxed fetch fails to follow, while gviz
+        // returns 200 directly with the CSV body. A #gid in the URL selects a
+        // specific tab; otherwise the first tab is used.
         var gid = parseGid(raw);
         var endpoint =
-          "https://docs.google.com/spreadsheets/d/" + id + "/export?format=csv";
+          "https://docs.google.com/spreadsheets/d/" + id + "/gviz/tq?tqx=out:csv";
         if (gid != null) endpoint += "&gid=" + encodeURIComponent(gid);
 
         fetchViaPlugin(endpoint)
