@@ -209,7 +209,6 @@ figma.ui.onmessage = async (message) => {
     } catch (error) {
       const messageText = (error && error.message) || "Network request failed.";
       console.log("[Populator] fetch error:", messageText);
-      figma.notify("Fetch failed: " + messageText);
       figma.ui.postMessage({
         type: "fetch-result",
         requestId,

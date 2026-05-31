@@ -313,6 +313,7 @@
       .status {
         font-size: 10px;
         color: #6b7280;
+        overflow-wrap: anywhere;
       }
 
       /* Don't take up vertical space (and a tab gap) when there's no message */
@@ -805,14 +806,19 @@
         ];
       }
 
-      // Optional CORS proxies — only used as a LAST RESORT if every direct
-      // endpoint fails with a network error (rare on the main thread). {ENC} is
-      // the URL-encoded target.
+      // CORS proxies. The plugin UI runs at origin "null" and Google sends no
+      // Access-Control-Allow-Origin, so a DIRECT fetch is CORS-blocked — the
+      // direct endpoints below will usually fail and we fall through to these,
+      // which re-serve the body with CORS headers. Several are tried so one
+      // being down / cert-expired isn't fatal.
       function proxied(targetUrl) {
         var enc = encodeURIComponent(targetUrl);
         return [
-          "https://populator-proxy.pooyakamel.workers.dev/?url=" + enc,
-          "https://api.allorigins.win/raw?url=" + enc
+          "https://api.codetabs.com/v1/proxy/?quest=" + enc,
+          "https://corsproxy.io/?url=" + enc,
+          "https://api.allorigins.win/raw?url=" + enc,
+          "https://proxy.cors.sh/" + targetUrl,
+          "https://thingproxy.freeboard.io/fetch/" + targetUrl
         ];
       }
 
@@ -831,42 +837,49 @@
 
       // Try each direct endpoint, then (only on hard failure) each proxy.
       // Resolves with CSV text, or rejects with a precise, actionable message.
+      // Short label for an endpoint, used in the error trail shown to the user.
+      function urlLabel(url) {
+        if (url.indexOf("/gviz/") !== -1 && url.indexOf("docs.google") !== -1) return "google:gviz";
+        if (url.indexOf("/export") !== -1 && url.indexOf("docs.google") !== -1) return "google:export";
+        try { return new URL(url).hostname; } catch (e) { return url.slice(0, 40); }
+      }
+
       function fetchSheetCsv(id, gid) {
         var direct = csvEndpoints(id, gid);
+        var candidates = direct.concat(proxied(direct[0]));
         var sawLogin = false;
-        var lastErr = null;
+        var trail = []; // ["google:gviz: Failed to fetch", ...]
 
         function attempt(url) {
           return fetchViaPlugin(url).then(function (res) {
             if (!res.ok) throw new Error("HTTP " + res.status);
-            if (looksLikeLogin(res)) { sawLogin = true; throw new Error("login-redirect"); }
+            if (looksLikeLogin(res)) { sawLogin = true; throw new Error("needs sign-in"); }
             var text = (res.text || "");
-            if (!text.trim()) throw new Error("Empty response.");
+            if (!text.trim()) throw new Error("empty response");
             return text;
+          }).catch(function (e) {
+            var msg = (e && e.message) || "failed";
+            console.warn("[Populator] sheet attempt failed:", urlLabel(url), "—", msg, url);
+            trail.push(urlLabel(url) + ": " + msg);
+            throw e;
           });
         }
 
-        // Chain: direct endpoints first, proxies as a fallback.
+        // Try each candidate in order; resolve on the first that returns CSV.
         var chain = Promise.reject(new Error("start"));
-        direct.concat(proxied(direct[0])).forEach(function (url) {
-          chain = chain.catch(function (e) {
-            lastErr = e;
-            return attempt(url);
-          });
+        candidates.forEach(function (url) {
+          chain = chain.catch(function () { return attempt(url); });
         });
 
         return chain.catch(function () {
           if (sawLogin) {
             throw new Error(
-              "This sheet isn't readable without signing in. In Google Sheets, " +
-              "use File → Share → Publish to web (or set link sharing to “Anyone " +
-              "with the link”), then Fetch again."
+              "Sheet needs sign-in — make it public or Publish to web. [" +
+              trail.join(" · ") + "]"
             );
           }
-          throw new Error(
-            (lastErr && lastErr.message) ||
-            "Couldn't load the sheet. Check the URL and that it's public, then retry."
-          );
+          // Surface the real per-endpoint console errors, not a generic line.
+          throw new Error("All endpoints failed — " + trail.join(" · "));
         });
       }
 
