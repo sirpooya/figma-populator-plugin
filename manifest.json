@@ -6,7 +6,7 @@
   "ui": "ui.html",
   "editorType": ["figma"],
   "networkAccess": {
-    "allowedDomains": ["*"],
-    "reasoning": "Fetches data from Google Sheets (gviz endpoint) and user-provided JSON APIs to populate designs."
+    "allowedDomains": ["https://sheets.googleapis.com", "*"],
+    "reasoning": "Reads spreadsheet data via the Google Sheets API (sheets.googleapis.com) and fetches user-provided JSON APIs to populate designs."
   }
 }

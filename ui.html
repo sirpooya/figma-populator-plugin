@@ -439,6 +439,10 @@
       <!-- Mode #2: Google Sheet -->
       <div class="tab" data-tab="sheet">
         <div class="field">
+          <label>Google Sheets API key</label>
+          <input id="sheet-key" type="text" placeholder="AIza… (saved on this device)" />
+        </div>
+        <div class="field">
           <label>Google Sheet URL</label>
           <div class="row">
             <input id="sheet-url" type="url" placeholder="https://docs.google.com/spreadsheets/d/..." />
@@ -448,8 +452,9 @@
         <div class="status" id="sheet-status"></div>
         <div class="placeholder" id="sheet-placeholder">
           Paste a Google Sheet link above and hit Fetch.<br />
-          Make it readable without sign-in: File → Share → "Anyone with the link", or Publish to web. The first row is used as column names.<br />
+          Set sharing to "Anyone with the link can view". The first row is used as column names.<br />
           To use a specific tab, open that tab and copy its URL (it includes #gid=…).<br />
+          One-time setup: create a free Google Cloud API key, enable the Google Sheets API, and paste the key above. It's stored only on this device.<br />
           A preview of your rows and column mapping will appear here.
         </div>
         <div class="preview" id="sheet-preview" hidden>
@@ -558,6 +563,7 @@
               type: "save-inputs",
               inputs: {
                 sheetUrl: document.getElementById("sheet-url").value,
+                sheetKey: document.getElementById("sheet-key").value,
                 apiUrl: document.getElementById("api-url").value,
                 activeTab: activeTabName
               }
@@ -695,6 +701,7 @@
 
       // ---------- Mode #2: Google Sheet ----------
       var sheetUrl = document.getElementById("sheet-url");
+      var sheetKey = document.getElementById("sheet-key");
       var sheetFetch = document.getElementById("sheet-fetch");
       var sheetStatus = document.getElementById("sheet-status");
       var sheetMapping = document.getElementById("sheet-mapping");
@@ -705,6 +712,7 @@
       var sheetFields = [];
 
       sheetUrl.addEventListener("input", saveInputs);
+      sheetKey.addEventListener("input", saveInputs);
 
       function setStatus(el, text, kind) {
         el.textContent = text;
@@ -732,48 +740,77 @@
         return m ? m[1] : null;
       }
 
-      // Minimal RFC-4180 CSV parser: handles quoted fields, embedded commas,
-      // escaped "" quotes, and \r\n / \n line breaks. Returns rows of strings.
-      function parseCsv(text) {
-        var rows = [];
-        var row = [];
-        var field = "";
-        var inQuotes = false;
-        for (var i = 0; i < text.length; i++) {
-          var c = text[i];
-          if (inQuotes) {
-            if (c === '"') {
-              if (text[i + 1] === '"') { field += '"'; i++; }
-              else { inQuotes = false; }
-            } else {
-              field += c;
-            }
-          } else if (c === '"') {
-            inQuotes = true;
-          } else if (c === ",") {
-            row.push(field); field = "";
-          } else if (c === "\n" || c === "\r") {
-            if (c === "\r" && text[i + 1] === "\n") i++;
-            row.push(field); field = "";
-            rows.push(row); row = [];
-          } else {
-            field += c;
-          }
-        }
-        if (field !== "" || row.length) { row.push(field); rows.push(row); }
-        return rows;
+      // ---------- Google Sheets API v4 ----------
+      // The plugin UI runs at origin "null", and the docs.google.com CSV/gviz
+      // endpoints send NO Access-Control-Allow-Origin header, so the browser
+      // discards them before our code sees the body — a direct fetch is
+      // impossible there. The Sheets API host (sheets.googleapis.com) DOES send
+      // CORS headers (it's built for browser clients), so we read directly from
+      // it with a user-supplied API key. No proxy, no worker.
+      //
+      // Requirements: a free Google Cloud API key with the Sheets API enabled,
+      // and the sheet set to "Anyone with the link can view".
+
+      // Pull a useful message out of the API's JSON error envelope.
+      function apiError(res) {
+        var msg = "HTTP " + res.status;
+        try {
+          var j = JSON.parse(res.text || "{}");
+          if (j && j.error && j.error.message) msg = j.error.message;
+        } catch (e) {}
+        return msg;
       }
 
-      // Turn CSV text into { fields, records }, first row = column names.
-      function csvToRecords(text) {
-        var rows = parseCsv(text).filter(function (r) {
-          return r.some(function (c) { return c !== ""; });
+      // The API addresses tabs by NAME, but a pasted URL only carries the
+      // numeric gid. Fetch the spreadsheet metadata to map gid → sheet title.
+      // No gid → use the first sheet.
+      function resolveSheetTitle(id, key, gid) {
+        var metaUrl =
+          "https://sheets.googleapis.com/v4/spreadsheets/" + encodeURIComponent(id) +
+          "?fields=sheets(properties(sheetId,title))&key=" + encodeURIComponent(key);
+        return fetchViaPlugin(metaUrl).then(function (res) {
+          if (!res.ok) throw new Error(apiError(res));
+          var meta = JSON.parse(res.text || "{}");
+          var sheets = (meta && meta.sheets) || [];
+          if (!sheets.length) throw new Error("Spreadsheet has no tabs.");
+          var props;
+          if (gid != null) {
+            var match = sheets.filter(function (s) {
+              return s.properties && String(s.properties.sheetId) === String(gid);
+            })[0];
+            props = match && match.properties;
+            if (!props) throw new Error("No tab with gid " + gid + " in this sheet.");
+          } else {
+            props = sheets[0].properties;
+          }
+          return props.title;
         });
-        if (!rows.length) throw new Error("The sheet appears to be empty.");
-        var cols = rows[0].map(function (c, i) {
-          return (c && c.trim()) || ("Column " + (i + 1));
+      }
+
+      // Read a tab's values via the API and shape them into { fields, records }.
+      function fetchSheetValues(id, key, title) {
+        var valuesUrl =
+          "https://sheets.googleapis.com/v4/spreadsheets/" + encodeURIComponent(id) +
+          "/values/" + encodeURIComponent(title) +
+          "?majorDimension=ROWS&key=" + encodeURIComponent(key);
+        return fetchViaPlugin(valuesUrl).then(function (res) {
+          if (!res.ok) throw new Error(apiError(res));
+          var data = JSON.parse(res.text || "{}");
+          return valuesToRecords(data.values || []);
         });
-        var records = rows.slice(1).map(function (r) {
+      }
+
+      // First row = column names; remaining rows = records. Mirrors csvToRecords
+      // but works on the API's array-of-arrays.
+      function valuesToRecords(rows) {
+        var nonEmpty = rows.filter(function (r) {
+          return r && r.some(function (c) { return c != null && String(c) !== ""; });
+        });
+        if (!nonEmpty.length) throw new Error("The sheet appears to be empty.");
+        var cols = nonEmpty[0].map(function (c, i) {
+          return (c && String(c).trim()) || ("Column " + (i + 1));
+        });
+        var records = nonEmpty.slice(1).map(function (r) {
           var obj = {};
           cols.forEach(function (col, i) { obj[col] = r[i] != null ? r[i] : ""; });
           return obj;
@@ -781,111 +818,14 @@
         return { fields: cols, records: records };
       }
 
-      // The plugin's fetch runs on the MAIN THREAD (code.js), governed only by
-      // manifest.networkAccess — NOT by browser CORS. So we can hit Google
-      // directly; no proxy is needed for the data itself.
-      //
-      // The real failure mode for "public" sheets is sharing, not CORS:
-      //   • "Anyone with the link can VIEW" only grants browser/human access.
-      //   • The CSV endpoints (/export and /gviz) require the sheet to be
-      //     readable WITHOUT a session. A link-only sheet 302-redirects those
-      //     endpoints to accounts.google.com / a ServiceLogin HTML page.
-      // So a sheet must be either fully public OR "Published to web"
-      // (File → Share → Publish to web) for the CSV endpoints to return data.
-      //
-      // We build the two official CSV endpoints and try them in order. gviz is
-      // the most permissive for plain link-shared sheets; export?format=csv is
-      // the canonical one and respects the gid cleanly.
-      function csvEndpoints(id, gid) {
-        var base = "https://docs.google.com/spreadsheets/d/" + id;
-        var g = gid != null ? "&gid=" + encodeURIComponent(gid) : "";
-        var exportGid = gid != null ? "&gid=" + encodeURIComponent(gid) : "";
-        return [
-          base + "/gviz/tq?tqx=out:csv" + g,
-          base + "/export?format=csv" + exportGid
-        ];
-      }
-
-      // CORS proxies. The plugin UI runs at origin "null" and Google sends no
-      // Access-Control-Allow-Origin, so a DIRECT fetch is CORS-blocked — the
-      // direct endpoints below will usually fail and we fall through to these,
-      // which re-serve the body with CORS headers. Several are tried so one
-      // being down / cert-expired isn't fatal.
-      function proxied(targetUrl) {
-        var enc = encodeURIComponent(targetUrl);
-        return [
-          "https://api.codetabs.com/v1/proxy/?quest=" + enc,
-          "https://corsproxy.io/?url=" + enc,
-          "https://api.allorigins.win/raw?url=" + enc,
-          "https://proxy.cors.sh/" + targetUrl,
-          "https://thingproxy.freeboard.io/fetch/" + targetUrl
-        ];
-      }
-
-      // Did Google bounce us to a login / consent / sign-in page instead of
-      // returning CSV? Detect via the final redirected URL and the body shape.
-      function looksLikeLogin(res) {
-        var u = res.finalUrl || "";
-        if (/accounts\.google\.com|ServiceLogin|\/signin|\/v3\/signin/i.test(u)) return true;
-        var ct = (res.contentType || "").toLowerCase();
-        var text = res.text || "";
-        // CSV is never text/html; a sheet behind auth returns an HTML page.
-        if (ct.indexOf("text/html") !== -1) return true;
-        if (/^\s*<(!doctype|html)/i.test(text)) return true;
-        return false;
-      }
-
-      // Try each direct endpoint, then (only on hard failure) each proxy.
-      // Resolves with CSV text, or rejects with a precise, actionable message.
-      // Short label for an endpoint, used in the error trail shown to the user.
-      function urlLabel(url) {
-        if (url.indexOf("/gviz/") !== -1 && url.indexOf("docs.google") !== -1) return "google:gviz";
-        if (url.indexOf("/export") !== -1 && url.indexOf("docs.google") !== -1) return "google:export";
-        try { return new URL(url).hostname; } catch (e) { return url.slice(0, 40); }
-      }
-
-      function fetchSheetCsv(id, gid) {
-        var direct = csvEndpoints(id, gid);
-        var candidates = direct.concat(proxied(direct[0]));
-        var sawLogin = false;
-        var trail = []; // ["google:gviz: Failed to fetch", ...]
-
-        function attempt(url) {
-          return fetchViaPlugin(url).then(function (res) {
-            if (!res.ok) throw new Error("HTTP " + res.status);
-            if (looksLikeLogin(res)) { sawLogin = true; throw new Error("needs sign-in"); }
-            var text = (res.text || "");
-            if (!text.trim()) throw new Error("empty response");
-            return text;
-          }).catch(function (e) {
-            var msg = (e && e.message) || "failed";
-            console.warn("[Populator] sheet attempt failed:", urlLabel(url), "—", msg, url);
-            trail.push(urlLabel(url) + ": " + msg);
-            throw e;
-          });
-        }
-
-        // Try each candidate in order; resolve on the first that returns CSV.
-        var chain = Promise.reject(new Error("start"));
-        candidates.forEach(function (url) {
-          chain = chain.catch(function () { return attempt(url); });
-        });
-
-        return chain.catch(function () {
-          if (sawLogin) {
-            throw new Error(
-              "Sheet needs sign-in — make it public or Publish to web. [" +
-              trail.join(" · ") + "]"
-            );
-          }
-          // Surface the real per-endpoint console errors, not a generic line.
-          throw new Error("All endpoints failed — " + trail.join(" · "));
-        });
-      }
-
       sheetFetch.addEventListener("click", function () {
         var raw = sheetUrl.value.trim();
+        var key = sheetKey.value.trim();
         var id = parseSheetId(raw);
+        if (!key) {
+          setStatus(sheetStatus, "Enter your Google Sheets API key first.", "error");
+          return;
+        }
         if (!id) {
           setStatus(sheetStatus, "Could not find a sheet ID in that URL.", "error");
           return;
@@ -895,9 +835,9 @@
 
         var gid = parseGid(raw);
 
-        fetchSheetCsv(id, gid)
-          .then(function (text) {
-            var parsed = csvToRecords(text);
+        resolveSheetTitle(id, key, gid)
+          .then(function (title) { return fetchSheetValues(id, key, title); })
+          .then(function (parsed) {
             sheetRecords = parsed.records;
             sheetFields = parsed.fields;
             buildMapping(sheetMapping, sheetFields, sheetRecords);
@@ -1083,6 +1023,7 @@
 
         if (message.type === "restore-inputs" && message.inputs) {
           if (message.inputs.sheetUrl != null) sheetUrl.value = message.inputs.sheetUrl;
+          if (message.inputs.sheetKey != null) sheetKey.value = message.inputs.sheetKey;
           if (message.inputs.apiUrl != null) apiUrl.value = message.inputs.apiUrl;
           if (message.inputs.activeTab) selectTab(message.inputs.activeTab);
         }
