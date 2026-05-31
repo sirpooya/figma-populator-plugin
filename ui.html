@@ -447,14 +447,11 @@
         <div class="status" id="sheet-status"></div>
         <div class="placeholder" id="sheet-placeholder">
           Paste a Google Sheet link above and hit Fetch.<br />
-          Share the sheet as "Anyone with the link can view". The first row is used as column names.<br />
+          Share it as "Anyone with the link can view". The first row is used as column names.<br />
+          To use a specific tab, open that tab and copy its URL (it includes #gid=…).<br />
           A preview of your rows and column mapping will appear here.
         </div>
         <div class="preview" id="sheet-preview" hidden>
-          <div id="sheet-tabs-wrap" hidden>
-            <p class="preview-section-label">Sheet tab</p>
-            <div class="chips" id="sheet-tabs"></div>
-          </div>
           <div>
             <p class="preview-section-label">Map columns → layers</p>
             <div class="mapping" id="sheet-mapping"></div>
@@ -687,13 +684,8 @@
       var sheetTable = document.getElementById("sheet-table");
       var sheetPreview = document.getElementById("sheet-preview");
       var sheetPlaceholder = document.getElementById("sheet-placeholder");
-      var sheetTabsWrap = document.getElementById("sheet-tabs-wrap");
-      var sheetTabsEl = document.getElementById("sheet-tabs");
       var sheetBtn = document.getElementById("sheet-populate");
       var sheetFields = [];
-      var sheetId = null;
-      var sheetTabList = [];   // [{ name, gid }] discovered from the sheet
-      var sheetActiveGid = null;
 
       sheetUrl.addEventListener("input", saveInputs);
 
@@ -707,92 +699,91 @@
         return m ? m[1] : null;
       }
 
-      // Pull each tab's name + gid out of the sheet's /htmlview page. Google
-      // embeds them as: items.push({name: "Tab", pageUrl: "...", gid: "0", ...});
-      function parseSheetTabs(html) {
-        var tabs = [];
-        var seen = {};
-        var re = /\{name:\s*"((?:[^"\\]|\\.)*)"[^}]*?gid:\s*"(\d+)"/g;
-        var m;
-        while ((m = re.exec(html))) {
-          var name = m[1];
-          var gid = m[2];
-          try { name = JSON.parse('"' + name + '"'); } catch (e) {}
-          if (!seen[gid]) { seen[gid] = true; tabs.push({ name: name, gid: gid }); }
-        }
-        return tabs;
+      // A specific tab can be targeted by leaving #gid=... or ?gid=... in the
+      // pasted URL (open the tab in Sheets and copy its address-bar URL).
+      function parseGid(url) {
+        var m = url.match(/[#&?]gid=(\d+)/);
+        return m ? m[1] : null;
       }
 
-      // Best-effort: discover the sheet's tabs (no API key). Resolves to a
-      // list (possibly empty if discovery fails — fetch still works).
-      function discoverSheetTabs(id) {
-        return fetchViaPlugin("https://docs.google.com/spreadsheets/d/" + id + "/htmlview")
-          .then(function (res) { return res.ok ? res.text : ""; })
-          .then(function (html) { return parseSheetTabs(html); })
-          .catch(function () { return []; });
+      // Minimal RFC-4180 CSV parser: handles quoted fields, embedded commas,
+      // escaped "" quotes, and \r\n / \n line breaks. Returns rows of strings.
+      function parseCsv(text) {
+        var rows = [];
+        var row = [];
+        var field = "";
+        var inQuotes = false;
+        for (var i = 0; i < text.length; i++) {
+          var c = text[i];
+          if (inQuotes) {
+            if (c === '"') {
+              if (text[i + 1] === '"') { field += '"'; i++; }
+              else { inQuotes = false; }
+            } else {
+              field += c;
+            }
+          } else if (c === '"') {
+            inQuotes = true;
+          } else if (c === ",") {
+            row.push(field); field = "";
+          } else if (c === "\n" || c === "\r") {
+            if (c === "\r" && text[i + 1] === "\n") i++;
+            row.push(field); field = "";
+            rows.push(row); row = [];
+          } else {
+            field += c;
+          }
+        }
+        if (field !== "" || row.length) { row.push(field); rows.push(row); }
+        return rows;
       }
 
-      function renderSheetTabs() {
-        sheetTabsEl.innerHTML = "";
-        if (sheetTabList.length < 2) {
-          sheetTabsWrap.hidden = true;
-          return;
-        }
-        sheetTabsWrap.hidden = false;
-        sheetTabList.forEach(function (tab) {
-          var chip = document.createElement("button");
-          chip.className = "chip" + (tab.gid === sheetActiveGid ? " active" : "");
-          chip.textContent = tab.name;
-          chip.addEventListener("click", function () {
-            if (tab.gid === sheetActiveGid) return;
-            fetchSheetData(tab.gid);
-          });
-          sheetTabsEl.appendChild(chip);
+      // Turn CSV text into { fields, records }, first row = column names.
+      function csvToRecords(text) {
+        var rows = parseCsv(text).filter(function (r) {
+          return r.some(function (c) { return c !== ""; });
         });
-      }
-
-      // Parse the gviz JSON-ish response: google.visualization.Query.setResponse({...});
-      function parseGviz(text) {
-        var start = text.indexOf("{");
-        var end = text.lastIndexOf("}");
-        if (start === -1 || end === -1) throw new Error("Unexpected response from Google.");
-        var json = JSON.parse(text.substring(start, end + 1));
-        if (json.status === "error") {
-          var msg = (json.errors && json.errors[0] && json.errors[0].detailed_message) || "Sheet error.";
-          throw new Error(msg);
-        }
-        var cols = json.table.cols.map(function (c, i) {
-          return (c.label && c.label.trim()) || ("Column " + (i + 1));
+        if (!rows.length) throw new Error("The sheet appears to be empty.");
+        var cols = rows[0].map(function (c, i) {
+          return (c && c.trim()) || ("Column " + (i + 1));
         });
-        var records = json.table.rows.map(function (r) {
+        var records = rows.slice(1).map(function (r) {
           var obj = {};
-          r.c.forEach(function (cell, i) {
-            obj[cols[i]] = cell ? (cell.f != null ? cell.f : cell.v) : "";
-            if (obj[cols[i]] == null) obj[cols[i]] = "";
-          });
+          cols.forEach(function (col, i) { obj[col] = r[i] != null ? r[i] : ""; });
           return obj;
         });
         return { fields: cols, records: records };
       }
 
-      // Fetch one tab's data via gviz. gid is optional (null = default tab).
-      function fetchSheetData(gid) {
+      sheetFetch.addEventListener("click", function () {
+        var raw = sheetUrl.value.trim();
+        var id = parseSheetId(raw);
+        if (!id) {
+          setStatus(sheetStatus, "Could not find a sheet ID in that URL.", "error");
+          return;
+        }
         setStatus(sheetStatus, "Fetching…");
         sheetFetch.disabled = true;
-        sheetActiveGid = gid;
-        renderSheetTabs();
 
+        // CSV export sends permissive CORS headers (gviz does not), so this is
+        // the one Google endpoint a plugin can actually reach. A #gid in the URL
+        // selects a specific tab; otherwise the first tab is used.
+        var gid = parseGid(raw);
         var endpoint =
-          "https://docs.google.com/spreadsheets/d/" + sheetId + "/gviz/tq?tqx=out:json";
+          "https://docs.google.com/spreadsheets/d/" + id + "/export?format=csv";
         if (gid != null) endpoint += "&gid=" + encodeURIComponent(gid);
 
-        return fetchViaPlugin(endpoint)
+        fetchViaPlugin(endpoint)
           .then(function (res) {
-            if (!res.ok) throw new Error("HTTP " + res.status + " — is the sheet shared publicly?");
+            if (!res.ok) throw new Error("HTTP " + res.status + " — is the sheet shared so anyone with the link can view?");
             return res.text;
           })
           .then(function (text) {
-            var parsed = parseGviz(text);
+            // A login/HTML page instead of CSV means the sheet isn't public.
+            if (/^\s*</.test(text)) {
+              throw new Error("Couldn't read the sheet — make sure link sharing is on.");
+            }
+            var parsed = csvToRecords(text);
             sheetRecords = parsed.records;
             sheetFields = parsed.fields;
             buildMapping(sheetMapping, sheetFields, sheetRecords);
@@ -811,24 +802,6 @@
             updateAllButtons();
           })
           .then(function () { sheetFetch.disabled = false; });
-      }
-
-      sheetFetch.addEventListener("click", function () {
-        var id = parseSheetId(sheetUrl.value.trim());
-        if (!id) {
-          setStatus(sheetStatus, "Could not find a sheet ID in that URL.", "error");
-          return;
-        }
-        sheetId = id;
-        setStatus(sheetStatus, "Fetching…");
-        sheetFetch.disabled = true;
-
-        // Discover all tabs (best effort), then load the first one.
-        discoverSheetTabs(id).then(function (tabs) {
-          sheetTabList = tabs;
-          var firstGid = tabs.length ? tabs[0].gid : null;
-          fetchSheetData(firstGid);
-        });
       });
 
       sheetBtn.addEventListener("click", function () {
