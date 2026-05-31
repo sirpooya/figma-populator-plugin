@@ -191,12 +191,19 @@ figma.ui.onmessage = async (message) => {
     try {
       const response = await fetch(message.url);
       const text = await response.text();
-      console.log("[Populator] fetch ok:", response.status, "bytes:", text.length);
+      // response.url is the FINAL url after redirects. A non-published sheet
+      // bounces /export and /gviz to accounts.google.com or a ServiceLogin
+      // page; surfacing finalUrl lets the UI report that precisely instead of
+      // silently treating the login HTML as "bad data".
+      const finalUrl = response.url || message.url;
+      console.log("[Populator] fetch ok:", response.status, "bytes:", text.length, "final:", finalUrl);
       figma.ui.postMessage({
         type: "fetch-result",
         requestId,
         ok: response.ok,
         status: response.status,
+        finalUrl,
+        contentType: (response.headers && response.headers.get("content-type")) || "",
         text
       });
     } catch (error) {

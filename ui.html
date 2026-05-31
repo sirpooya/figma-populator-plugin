@@ -447,7 +447,7 @@
         <div class="status" id="sheet-status"></div>
         <div class="placeholder" id="sheet-placeholder">
           Paste a Google Sheet link above and hit Fetch.<br />
-          Share it as "Anyone with the link can view". The first row is used as column names.<br />
+          Make it readable without sign-in: File → Share → "Anyone with the link", or Publish to web. The first row is used as column names.<br />
           To use a specific tab, open that tab and copy its URL (it includes #gid=…).<br />
           A preview of your rows and column mapping will appear here.
         </div>
@@ -537,7 +537,13 @@
           pending.reject(new Error(message.error));
         } else {
           // Mirror the bits of a Response that callers use.
-          pending.resolve({ ok: message.ok, status: message.status, text: message.text });
+          pending.resolve({
+            ok: message.ok,
+            status: message.status,
+            text: message.text,
+            finalUrl: message.finalUrl || "",
+            contentType: message.contentType || ""
+          });
         }
       }
 
@@ -774,43 +780,94 @@
         return { fields: cols, records: records };
       }
 
-      // Google's gviz endpoint serves the data but sends NO CORS header, and
-      // Figma's fetch (even main-thread) runs through a null-origin context, so
-      // a direct request is CORS-blocked. We route through a public CORS proxy
-      // that re-serves the response with Access-Control-Allow-Origin. Several
-      // are tried in order so one being down/rate-limited isn't fatal.
-      // {URL} is replaced with the (encoded or raw) target. A custom template
-      // typed into the Proxy field is tried first.
+      // The plugin's fetch runs on the MAIN THREAD (code.js), governed only by
+      // manifest.networkAccess — NOT by browser CORS. So we can hit Google
+      // directly; no proxy is needed for the data itself.
+      //
+      // The real failure mode for "public" sheets is sharing, not CORS:
+      //   • "Anyone with the link can VIEW" only grants browser/human access.
+      //   • The CSV endpoints (/export and /gviz) require the sheet to be
+      //     readable WITHOUT a session. A link-only sheet 302-redirects those
+      //     endpoints to accounts.google.com / a ServiceLogin HTML page.
+      // So a sheet must be either fully public OR "Published to web"
+      // (File → Share → Publish to web) for the CSV endpoints to return data.
+      //
+      // We build the two official CSV endpoints and try them in order. gviz is
+      // the most permissive for plain link-shared sheets; export?format=csv is
+      // the canonical one and respects the gid cleanly.
+      function csvEndpoints(id, gid) {
+        var base = "https://docs.google.com/spreadsheets/d/" + id;
+        var g = gid != null ? "&gid=" + encodeURIComponent(gid) : "";
+        var exportGid = gid != null ? "&gid=" + encodeURIComponent(gid) : "";
+        return [
+          base + "/gviz/tq?tqx=out:csv" + g,
+          base + "/export?format=csv" + exportGid
+        ];
+      }
+
+      // Optional CORS proxies — only used as a LAST RESORT if every direct
+      // endpoint fails with a network error (rare on the main thread). {ENC} is
+      // the URL-encoded target.
       function proxied(targetUrl) {
         var enc = encodeURIComponent(targetUrl);
         return [
           "https://populator-proxy.pooyakamel.workers.dev/?url=" + enc,
-          "https://api.codetabs.com/v1/proxy/?quest=" + enc,
-          "https://api.allorigins.win/raw?url=" + enc,
-          "https://corsproxy.io/?url=" + enc,
-          "https://proxy.cors.sh/" + targetUrl,
-          "https://cors.eu.org/" + targetUrl,
-          "https://thingproxy.freeboard.io/fetch/" + targetUrl
+          "https://api.allorigins.win/raw?url=" + enc
         ];
       }
 
-      // Try each proxy until one returns a non-HTML CSV body.
-      function fetchSheetCsv(targetUrl, candidates, index) {
-        index = index || 0;
-        if (index >= candidates.length) {
-          return Promise.reject(new Error("All proxies failed — try again, or check that the sheet is public."));
-        }
-        return fetchViaPlugin(candidates[index])
-          .then(function (res) {
+      // Did Google bounce us to a login / consent / sign-in page instead of
+      // returning CSV? Detect via the final redirected URL and the body shape.
+      function looksLikeLogin(res) {
+        var u = res.finalUrl || "";
+        if (/accounts\.google\.com|ServiceLogin|\/signin|\/v3\/signin/i.test(u)) return true;
+        var ct = (res.contentType || "").toLowerCase();
+        var text = res.text || "";
+        // CSV is never text/html; a sheet behind auth returns an HTML page.
+        if (ct.indexOf("text/html") !== -1) return true;
+        if (/^\s*<(!doctype|html)/i.test(text)) return true;
+        return false;
+      }
+
+      // Try each direct endpoint, then (only on hard failure) each proxy.
+      // Resolves with CSV text, or rejects with a precise, actionable message.
+      function fetchSheetCsv(id, gid) {
+        var direct = csvEndpoints(id, gid);
+        var sawLogin = false;
+        var lastErr = null;
+
+        function attempt(url) {
+          return fetchViaPlugin(url).then(function (res) {
             if (!res.ok) throw new Error("HTTP " + res.status);
-            var text = res.text || "";
-            // A login/HTML page (or empty) means this proxy didn't get the CSV.
-            if (!text.trim() || /^\s*</.test(text)) throw new Error("Bad response");
+            if (looksLikeLogin(res)) { sawLogin = true; throw new Error("login-redirect"); }
+            var text = (res.text || "");
+            if (!text.trim()) throw new Error("Empty response.");
             return text;
-          })
-          .catch(function () {
-            return fetchSheetCsv(targetUrl, candidates, index + 1);
           });
+        }
+
+        // Chain: direct endpoints first, proxies as a fallback.
+        var chain = Promise.reject(new Error("start"));
+        direct.concat(proxied(direct[0])).forEach(function (url) {
+          chain = chain.catch(function (e) {
+            lastErr = e;
+            return attempt(url);
+          });
+        });
+
+        return chain.catch(function () {
+          if (sawLogin) {
+            throw new Error(
+              "This sheet isn't readable without signing in. In Google Sheets, " +
+              "use File → Share → Publish to web (or set link sharing to “Anyone " +
+              "with the link”), then Fetch again."
+            );
+          }
+          throw new Error(
+            (lastErr && lastErr.message) ||
+            "Couldn't load the sheet. Check the URL and that it's public, then retry."
+          );
+        });
       }
 
       sheetFetch.addEventListener("click", function () {
@@ -824,11 +881,8 @@
         sheetFetch.disabled = true;
 
         var gid = parseGid(raw);
-        var target =
-          "https://docs.google.com/spreadsheets/d/" + id + "/gviz/tq?tqx=out:csv";
-        if (gid != null) target += "&gid=" + encodeURIComponent(gid);
 
-        fetchSheetCsv(target, proxied(target))
+        fetchSheetCsv(id, gid)
           .then(function (text) {
             var parsed = csvToRecords(text);
             sheetRecords = parsed.records;
