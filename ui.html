@@ -506,6 +506,7 @@
     <script>
       var hasValidSelection = false;
       var textLayers = [];
+      var activeTabName = "paste";
 
       // Holds parsed records per mode so we can build mappings.
       var sheetRecords = [];
@@ -550,7 +551,8 @@
               type: "save-inputs",
               inputs: {
                 sheetUrl: document.getElementById("sheet-url").value,
-                apiUrl: document.getElementById("api-url").value
+                apiUrl: document.getElementById("api-url").value,
+                activeTab: activeTabName
               }
             }
           }, "*");
@@ -560,14 +562,22 @@
       // ---------- Tabs ----------
       var tabButtons = document.querySelectorAll(".segmented button");
       var tabs = document.querySelectorAll(".tab");
+
+      function selectTab(name) {
+        activeTabName = name;
+        tabButtons.forEach(function (b) {
+          b.classList.toggle("active", b.getAttribute("data-tab") === name);
+        });
+        tabs.forEach(function (t) {
+          t.classList.toggle("active", t.getAttribute("data-tab") === name);
+        });
+        updateAllButtons();
+      }
+
       tabButtons.forEach(function (btn) {
         btn.addEventListener("click", function () {
-          var name = btn.getAttribute("data-tab");
-          tabButtons.forEach(function (b) { b.classList.toggle("active", b === btn); });
-          tabs.forEach(function (t) {
-            t.classList.toggle("active", t.getAttribute("data-tab") === name);
-          });
-          updateAllButtons();
+          selectTab(btn.getAttribute("data-tab"));
+          saveInputs();
         });
       });
 
@@ -979,6 +989,7 @@
         if (message.type === "restore-inputs" && message.inputs) {
           if (message.inputs.sheetUrl != null) sheetUrl.value = message.inputs.sheetUrl;
           if (message.inputs.apiUrl != null) apiUrl.value = message.inputs.apiUrl;
+          if (message.inputs.activeTab) selectTab(message.inputs.activeTab);
         }
 
         if (message.type === "selection-state") {
