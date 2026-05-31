@@ -604,18 +604,16 @@
         return m ? m[1] : null;
       }
 
-      // Pull { gid -> name } for every tab out of the sheet's HTML bootstrap.
-      // Google embeds a `bootstrapData` blob containing each sheet's name + gid.
+      // Pull each tab's name + gid out of the sheet's /htmlview page. Google
+      // embeds them as: items.push({name: "Tab", pageUrl: "...", gid: "0", ...});
       function parseSheetTabs(html) {
         var tabs = [];
         var seen = {};
-        // Matches "...","<gid>","<name>",... style entries in the bootstrap.
-        var re = /"name":"((?:[^"\\]|\\.)*)"[^}]*?"sheetId":(\d+)|"sheetId":(\d+)[^}]*?"name":"((?:[^"\\]|\\.)*)"/g;
+        var re = /\{name:\s*"((?:[^"\\]|\\.)*)"[^}]*?gid:\s*"(\d+)"/g;
         var m;
         while ((m = re.exec(html))) {
-          var name = m[1] != null ? m[1] : m[4];
-          var gid = m[2] != null ? m[2] : m[3];
-          if (!name || gid == null) continue;
+          var name = m[1];
+          var gid = m[2];
           try { name = JSON.parse('"' + name + '"'); } catch (e) {}
           if (!seen[gid]) { seen[gid] = true; tabs.push({ name: name, gid: gid }); }
         }
