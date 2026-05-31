@@ -6,7 +6,7 @@
   "ui": "ui.html",
   "editorType": ["figma"],
   "networkAccess": {
-    "allowedDomains": ["https://sheets.googleapis.com", "*"],
-    "reasoning": "Reads spreadsheet data via the Google Sheets API (sheets.googleapis.com) and fetches user-provided JSON APIs to populate designs."
+    "allowedDomains": ["*"],
+    "reasoning": "Fetches Google Sheets CSV (via CORS proxy) and user-provided JSON APIs to populate designs."
   }
 }
