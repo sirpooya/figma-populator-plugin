@@ -695,8 +695,17 @@
       }
 
       function parseSheetId(url) {
-        var m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-        return m ? m[1] : null;
+        // Handle the common URL shapes:
+        //   /spreadsheets/d/<id>/...      (standard, incl. /u/0/d/)
+        //   ?id=<id> or &id=<id>          (open?id= links)
+        //   a bare id pasted on its own
+        var m =
+          url.match(/\/d\/([a-zA-Z0-9-_]{20,})/) ||
+          url.match(/[?&]id=([a-zA-Z0-9-_]{20,})/);
+        if (m) return m[1];
+        // A bare ID (no slashes / spaces) pasted directly.
+        if (/^[a-zA-Z0-9-_]{20,}$/.test(url)) return url;
+        return null;
       }
 
       // A specific tab can be targeted by leaving #gid=... or ?gid=... in the

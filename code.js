@@ -187,9 +187,11 @@ figma.ui.onmessage = async (message) => {
   // the raw response text back to parse.
   if (message.type === "fetch-url") {
     const requestId = message.requestId;
+    console.log("[Populator] fetching:", message.url);
     try {
       const response = await fetch(message.url);
       const text = await response.text();
+      console.log("[Populator] fetch ok:", response.status, "bytes:", text.length);
       figma.ui.postMessage({
         type: "fetch-result",
         requestId,
@@ -198,12 +200,15 @@ figma.ui.onmessage = async (message) => {
         text
       });
     } catch (error) {
+      const messageText = (error && error.message) || "Network request failed.";
+      console.log("[Populator] fetch error:", messageText);
+      figma.notify("Fetch failed: " + messageText);
       figma.ui.postMessage({
         type: "fetch-result",
         requestId,
         ok: false,
         status: 0,
-        error: (error && error.message) || "Network request failed."
+        error: messageText
       });
     }
     return;
