@@ -180,6 +180,35 @@ figma.ui.onmessage = async (message) => {
     return;
   }
 
+  // Network requests must run on the main thread, NOT the UI iframe: the
+  // iframe has origin "null" and is blocked by CORS for cross-origin hosts
+  // like Google Sheets. The main-thread fetch is governed only by
+  // manifest.networkAccess, so it works. The UI sends a request id and gets
+  // the raw response text back to parse.
+  if (message.type === "fetch-url") {
+    const requestId = message.requestId;
+    try {
+      const response = await fetch(message.url);
+      const text = await response.text();
+      figma.ui.postMessage({
+        type: "fetch-result",
+        requestId,
+        ok: response.ok,
+        status: response.status,
+        text
+      });
+    } catch (error) {
+      figma.ui.postMessage({
+        type: "fetch-result",
+        requestId,
+        ok: false,
+        status: 0,
+        error: (error && error.message) || "Network request failed."
+      });
+    }
+    return;
+  }
+
   // Mode #1: paste — one item per line.
   if (message.type === "populate-lines") {
     const lines = message.text

@@ -440,6 +440,35 @@
       var sheetRecords = [];
       var apiRecords = [];
 
+      // ---------- Network via the main thread ----------
+      // The UI iframe has origin "null" and is CORS-blocked from cross-origin
+      // hosts (Google, arbitrary APIs). So we proxy every fetch through code.js,
+      // which has a privileged fetch governed only by manifest.networkAccess.
+      var pendingFetches = {};
+      var fetchSeq = 0;
+
+      function fetchViaPlugin(url) {
+        var requestId = "f" + (++fetchSeq);
+        return new Promise(function (resolve, reject) {
+          pendingFetches[requestId] = { resolve: resolve, reject: reject };
+          parent.postMessage({
+            pluginMessage: { type: "fetch-url", requestId: requestId, url: url }
+          }, "*");
+        });
+      }
+
+      function handleFetchResult(message) {
+        var pending = pendingFetches[message.requestId];
+        if (!pending) return;
+        delete pendingFetches[message.requestId];
+        if (message.error) {
+          pending.reject(new Error(message.error));
+        } else {
+          // Mirror the bits of a Response that callers use.
+          pending.resolve({ ok: message.ok, status: message.status, text: message.text });
+        }
+      }
+
       // ---------- Persist field values ----------
       var saveTimer = null;
       function saveInputs() {
@@ -623,8 +652,8 @@
       // Best-effort: discover the sheet's tabs (no API key). Resolves to a
       // list (possibly empty if discovery fails — fetch still works).
       function discoverSheetTabs(id) {
-        return fetch("https://docs.google.com/spreadsheets/d/" + id + "/htmlview")
-          .then(function (res) { return res.ok ? res.text() : ""; })
+        return fetchViaPlugin("https://docs.google.com/spreadsheets/d/" + id + "/htmlview")
+          .then(function (res) { return res.ok ? res.text : ""; })
           .then(function (html) { return parseSheetTabs(html); })
           .catch(function () { return []; });
       }
@@ -683,10 +712,10 @@
           "https://docs.google.com/spreadsheets/d/" + sheetId + "/gviz/tq?tqx=out:json";
         if (gid != null) endpoint += "&gid=" + encodeURIComponent(gid);
 
-        return fetch(endpoint)
+        return fetchViaPlugin(endpoint)
           .then(function (res) {
             if (!res.ok) throw new Error("HTTP " + res.status + " — is the sheet shared publicly?");
-            return res.text();
+            return res.text;
           })
           .then(function (text) {
             var parsed = parseGviz(text);
@@ -795,10 +824,14 @@
         setStatus(apiStatus, "Fetching…");
         apiFetch.disabled = true;
 
-        fetch(url)
+        fetchViaPlugin(url)
           .then(function (res) {
             if (!res.ok) throw new Error("HTTP " + res.status);
-            return res.json();
+            try {
+              return JSON.parse(res.text);
+            } catch (e) {
+              throw new Error("Response was not valid JSON.");
+            }
           })
           .then(function (json) {
             var arr = findRecordsArray(json);
@@ -877,6 +910,11 @@
       window.onmessage = function (event) {
         var message = event.data.pluginMessage;
         if (!message) return;
+
+        if (message.type === "fetch-result") {
+          handleFetchResult(message);
+          return;
+        }
 
         if (message.type === "populate-result") {
           updateAllButtons();
