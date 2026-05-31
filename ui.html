@@ -345,6 +345,80 @@
         right: 2px;
         bottom: 2px;
       }
+
+      /* ---------- Dark theme ----------
+         Figma adds the `figma-dark` class to <html> when the OS / Figma is in
+         dark mode (enabled via themeColors:true in code.js). We remap surfaces
+         using Figma's own --figma-color-* variables so it matches the editor. */
+      html.figma-dark body {
+        color: var(--figma-color-text, #e6e6e6);
+        background: var(--figma-color-bg, #2c2c2c);
+      }
+
+      html.figma-dark .segmented {
+        background: var(--figma-color-bg-secondary, #383838);
+      }
+
+      html.figma-dark .segmented button {
+        color: var(--figma-color-text-secondary, #b3b3b3);
+      }
+
+      html.figma-dark .segmented button.active {
+        background: var(--figma-color-bg-tertiary, #545454);
+        color: var(--figma-color-text, #fff);
+        box-shadow: none;
+      }
+
+      html.figma-dark textarea,
+      html.figma-dark input[type="text"],
+      html.figma-dark input[type="url"],
+      html.figma-dark select {
+        color: var(--figma-color-text, #e6e6e6);
+        background: var(--figma-color-bg-secondary, #383838);
+        border-color: var(--figma-color-border, #444);
+      }
+
+      html.figma-dark label,
+      html.figma-dark .preview-section-label {
+        color: var(--figma-color-text-secondary, #b3b3b3);
+      }
+
+      html.figma-dark .placeholder,
+      html.figma-dark .mapping,
+      html.figma-dark .table-wrap,
+      html.figma-dark .chip {
+        background: var(--figma-color-bg-secondary, #383838);
+        color: var(--figma-color-text-secondary, #b3b3b3);
+      }
+
+      html.figma-dark .chip.active {
+        background: var(--figma-color-bg-brand, #0c8ce9);
+        color: var(--figma-color-text-onbrand, #fff);
+      }
+
+      html.figma-dark .map-row .fieldname {
+        color: var(--figma-color-text, #e6e6e6);
+      }
+
+      html.figma-dark table.preview-table th {
+        background: var(--figma-color-bg-tertiary, #545454);
+        color: var(--figma-color-text, #e6e6e6);
+      }
+
+      html.figma-dark table.preview-table th,
+      html.figma-dark table.preview-table td {
+        border-bottom-color: var(--figma-color-border, #444);
+      }
+
+      html.figma-dark button.secondary {
+        color: var(--figma-color-text, #e6e6e6);
+        background: var(--figma-color-bg-tertiary, #545454);
+      }
+
+      html.figma-dark button:disabled {
+        color: var(--figma-color-text-disabled, #777);
+        background: var(--figma-color-bg-disabled, #444);
+      }
     </style>
   </head>
   <body>
