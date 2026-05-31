@@ -774,6 +774,39 @@
         return { fields: cols, records: records };
       }
 
+      // Google's gviz endpoint serves the data but sends NO CORS header, and
+      // Figma's fetch (even main-thread) runs through a null-origin context, so
+      // a direct request is CORS-blocked. We route through a public CORS proxy
+      // that re-serves the response with Access-Control-Allow-Origin. Several
+      // are tried in order so one being down/rate-limited isn't fatal.
+      function proxied(targetUrl) {
+        var enc = encodeURIComponent(targetUrl);
+        return [
+          "https://api.allorigins.win/raw?url=" + enc,
+          "https://corsproxy.io/?url=" + enc,
+          "https://thingproxy.freeboard.io/fetch/" + targetUrl
+        ];
+      }
+
+      // Try each proxy until one returns a non-HTML CSV body.
+      function fetchSheetCsv(targetUrl, candidates, index) {
+        index = index || 0;
+        if (index >= candidates.length) {
+          return Promise.reject(new Error("All proxies failed — try again, or check that the sheet is public."));
+        }
+        return fetchViaPlugin(candidates[index])
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            var text = res.text || "";
+            // A login/HTML page (or empty) means this proxy didn't get the CSV.
+            if (!text.trim() || /^\s*</.test(text)) throw new Error("Bad response");
+            return text;
+          })
+          .catch(function () {
+            return fetchSheetCsv(targetUrl, candidates, index + 1);
+          });
+      }
+
       sheetFetch.addEventListener("click", function () {
         var raw = sheetUrl.value.trim();
         var id = parseSheetId(raw);
@@ -784,25 +817,13 @@
         setStatus(sheetStatus, "Fetching…");
         sheetFetch.disabled = true;
 
-        // Use the gviz CSV endpoint, NOT /export?format=csv: export issues a
-        // 302 redirect that Figma's sandboxed fetch fails to follow, while gviz
-        // returns 200 directly with the CSV body. A #gid in the URL selects a
-        // specific tab; otherwise the first tab is used.
         var gid = parseGid(raw);
-        var endpoint =
+        var target =
           "https://docs.google.com/spreadsheets/d/" + id + "/gviz/tq?tqx=out:csv";
-        if (gid != null) endpoint += "&gid=" + encodeURIComponent(gid);
+        if (gid != null) target += "&gid=" + encodeURIComponent(gid);
 
-        fetchViaPlugin(endpoint)
-          .then(function (res) {
-            if (!res.ok) throw new Error("HTTP " + res.status + " — is the sheet shared so anyone with the link can view?");
-            return res.text;
-          })
+        fetchSheetCsv(target, proxied(target))
           .then(function (text) {
-            // A login/HTML page instead of CSV means the sheet isn't public.
-            if (/^\s*</.test(text)) {
-              throw new Error("Couldn't read the sheet — make sure link sharing is on.");
-            }
             var parsed = csvToRecords(text);
             sheetRecords = parsed.records;
             sheetFields = parsed.fields;
