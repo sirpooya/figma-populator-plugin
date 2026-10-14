@@ -8,13 +8,9 @@ figma.clientStorage.getAsync(SAVED_SIZE_KEY).then((size) => {
   }
 });
 
-// Restore the user's saved field values (sheet URL, tab, API URL).
+// Saved field values (sheet URL, tab, API URL). Sent back when the UI says
+// it is ready, so the message is never posted before the UI listens.
 const SAVED_INPUTS_KEY = "populator-inputs";
-figma.clientStorage.getAsync(SAVED_INPUTS_KEY).then((inputs) => {
-  if (inputs) {
-    figma.ui.postMessage({ type: "restore-inputs", inputs });
-  }
-});
 
 function getSelectedSourceNode() {
   const selection = figma.currentPage.selection;
@@ -171,6 +167,14 @@ figma.ui.onmessage = async (message) => {
     const height = Math.max(380, Math.round(message.height));
     figma.ui.resize(width, height);
     figma.clientStorage.setAsync(SAVED_SIZE_KEY, { width, height });
+    return;
+  }
+
+  if (message.type === "ui-ready") {
+    const inputs = await figma.clientStorage.getAsync(SAVED_INPUTS_KEY);
+    if (inputs) {
+      figma.ui.postMessage({ type: "restore-inputs", inputs });
+    }
     return;
   }
 
