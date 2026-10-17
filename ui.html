@@ -31,6 +31,12 @@
         --color-icon-secondary: #00000080;
         --color-scrollbar: #b3b3b380;
         --color-texthighlight: #0d99ff66;
+        /* Menus are dark in both themes, as in Figma. */
+        --color-bg-menu: #1e1e1e;
+        --color-bg-menu-selected: #0d99ff;
+        --color-text-menu: #fff;
+        --color-text-menu-secondary: #ffffffb2;
+        --elevation-400-menu-panel: 0px 0px 0.5px rgba(0, 0, 0, 0.12), 0px 10px 16px rgba(0, 0, 0, 0.12), 0px 2px 5px rgba(0, 0, 0, 0.15);
 
         --font-family-default: "Inter", ui-sans-serif, system-ui, -apple-system, "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "Noto Sans", sans-serif;
         --font-weight-default: 450;
@@ -39,6 +45,7 @@
         --text-body-medium-line-height: 1rem;
         --text-body-medium-letter-spacing: 0.00344rem;
         --radius-medium: 0.3125rem;
+        --radius-large: 0.8125rem;
         --spacer-1: 0.25rem;
         --spacer-2: 0.5rem;
         --spacer-2-5: 0.75rem;
@@ -66,6 +73,8 @@
         --color-text-danger: #fca397;
         --color-text-success: #7cd797;
         --color-icon-secondary: #ffffffb2;
+        --color-bg-menu-selected: #0c8ce9;
+        --elevation-400-menu-panel: 0px 10px 16px rgba(0, 0, 0, 0.35), 0px 2px 5px rgba(0, 0, 0, 0.35), inset 0px 0.5px 0px rgba(255, 255, 255, 0.08), inset 0px 0px 0.5px rgba(255, 255, 255, 0.35);
       }
 
       * {
@@ -126,10 +135,6 @@
         flex: 0 0 auto;
       }
 
-      .tabs.wrap {
-        flex-wrap: wrap;
-      }
-
       .tab-button {
         display: grid;
         align-items: center;
@@ -171,12 +176,18 @@
         outline-offset: -1px;
       }
 
+      /* The tab body is the one scroller. It reaches the window's right edge
+         so the scrollbar sits there, its gutter standing in for the padding. */
       .tab {
         display: none;
         flex-direction: column;
         gap: var(--spacer-2);
         flex: 1;
         min-height: 0;
+        overflow-y: auto;
+        scrollbar-gutter: stable;
+        margin-right: calc(-1 * var(--spacer-2-5));
+        padding-right: calc(var(--spacer-2-5) - 10px);
       }
 
       .tab.active {
@@ -288,7 +299,8 @@
         cursor: default;
       }
 
-      .select::after {
+      .select::after,
+      .picker::after {
         content: "";
         position: absolute;
         top: 4px;
@@ -416,10 +428,10 @@
       }
 
       /* ---------- Preview ---------- */
+      /* The extra top margin matches the 16px gap between its own sections. */
       .preview {
-        flex: 1;
-        min-height: 0;
-        overflow-y: auto;
+        flex: 1 0 auto;
+        margin-top: var(--spacer-2);
         display: flex;
         flex-direction: column;
         gap: var(--spacer-3);
@@ -444,10 +456,19 @@
         display: none;
       }
 
+      /* The rows sit in a light gray box; its dropdowns go to the plain
+         surface so they still read as fields against it. */
       .mapping {
         display: flex;
         flex-direction: column;
         gap: var(--spacer-1);
+        padding: var(--spacer-2);
+        border-radius: var(--radius-medium);
+        background: var(--color-bg-secondary);
+      }
+
+      .mapping .picker-button {
+        background: var(--color-bg);
       }
 
       .map-row {
@@ -464,24 +485,262 @@
         text-overflow: ellipsis;
       }
 
+      /* Picker: a select whose options carry an icon (the category picker).
+         The button matches .select; the menu is Figma's dark menu panel. */
+      .picker {
+        position: relative;
+      }
+
+      .picker-button {
+        display: flex;
+        align-items: center;
+        gap: var(--spacer-2);
+        width: 100%;
+        height: 1.5rem;
+        padding: 0 1.5rem 0 var(--spacer-2);
+        border: none;
+        border-radius: var(--radius-medium);
+        outline: 1px solid transparent;
+        outline-offset: -1px;
+        background: var(--color-bg-secondary);
+        color: var(--color-text);
+        font: inherit;
+        text-align: left;
+        cursor: default;
+      }
+
+      .picker-button:hover {
+        outline-color: var(--color-border);
+      }
+
+      .picker-button:focus-visible,
+      .picker-button[aria-expanded="true"] {
+        outline-color: var(--color-border-selected);
+      }
+
+      .picker-menu {
+        position: absolute;
+        top: calc(100% + var(--spacer-1));
+        left: 0;
+        right: 0;
+        z-index: 20;
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacer-1);
+        min-width: 10rem;
+        max-height: 17rem;
+        padding: var(--spacer-2);
+        border-radius: var(--radius-large);
+        background: var(--color-bg-menu);
+        box-shadow: var(--elevation-400-menu-panel);
+        color: var(--color-text-menu);
+      }
+
+      .picker-menu[hidden] {
+        display: none;
+      }
+
+      /* Opens upward when there is no room below the button. */
+      .picker-menu.up {
+        top: auto;
+        bottom: calc(100% + var(--spacer-1));
+      }
+
+      /* The dropdown stops growing at 12rem; a wider window gives the rest
+         to the sample value. */
+      .map-row .picker {
+        flex: 1 1 8.75rem;
+        min-width: 0;
+        max-width: 12rem;
+      }
+
+      /* The search stays put while the items scroll under it. */
+      .picker-search {
+        flex: 0 0 auto;
+        width: 100%;
+        height: 1.5rem;
+        padding: 0 var(--spacer-2);
+        border: none;
+        border-radius: var(--radius-medium);
+        outline: 1px solid transparent;
+        outline-offset: -1px;
+        background: #ffffff1a;
+        color: var(--color-text-menu);
+        font: inherit;
+      }
+
+      .picker-search::placeholder {
+        color: var(--color-text-menu-secondary);
+      }
+
+      .picker-search:focus {
+        outline-color: var(--color-bg-menu-selected);
+      }
+
+      .picker-items {
+        min-height: 0;
+        overflow-y: auto;
+      }
+
+      .picker-empty {
+        padding: var(--spacer-1) var(--spacer-2);
+        color: var(--color-text-menu-secondary);
+      }
+
+      .picker-item {
+        display: flex;
+        align-items: center;
+        gap: var(--spacer-2);
+        width: 100%;
+        height: 1.5rem;
+        padding: 0 var(--spacer-2) 0 var(--spacer-1);
+        border: none;
+        border-radius: var(--radius-medium);
+        background: none;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: default;
+      }
+
+      .picker-item[hidden] {
+        display: none;
+      }
+
+      .picker-item:hover,
+      .picker-item:focus-visible {
+        outline: none;
+        background: var(--color-bg-menu-selected);
+      }
+
+      .picker-check {
+        flex: 0 0 16px;
+        height: 16px;
+      }
+
+      .picker-item[aria-selected="true"] .picker-check {
+        background: currentColor;
+        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='M11.646 5.146a.5.5 0 0 1 .708.708l-5 5a.5.5 0 0 1-.708 0l-2.5-2.5a.5.5 0 1 1 .708-.708L7 9.793z'/%3E%3C/svg%3E") center / 16px no-repeat;
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='M11.646 5.146a.5.5 0 0 1 .708.708l-5 5a.5.5 0 0 1-.708 0l-2.5-2.5a.5.5 0 1 1 .708-.708L7 9.793z'/%3E%3C/svg%3E") center / 16px no-repeat;
+      }
+
+      /* The icon is the server's black SVG used as a mask, so it takes the
+         text color in both themes and in the dark menu. */
+      .picker-icon {
+        flex: 0 0 16px;
+        height: 16px;
+        background: currentColor;
+        -webkit-mask: var(--icon) center / contain no-repeat;
+        mask: var(--icon) center / contain no-repeat;
+      }
+
+      .picker-title {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .picker-count {
+        flex: 0 0 auto;
+        color: var(--color-text-tertiary);
+      }
+
+      .picker-menu .picker-count {
+        color: var(--color-text-menu-secondary);
+      }
+
+      .map-row .linked {
+        flex: 1 1 8.75rem;
+        min-width: 0;
+        max-width: 12rem;
+        height: 1.5rem;
+        display: flex;
+        align-items: center;
+        padding: 0 var(--spacer-2);
+        color: var(--color-text-tertiary);
+      }
+
       .map-row .sample {
-        flex: 0 0 72px;
+        flex: 1 1 72px;
+        min-width: 72px;
         color: var(--color-text-tertiary);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
 
+      /* Mapping and Data share the space below the source, one at a time. */
+      .subtabs {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacer-2);
+      }
+
+      /* Mapping / Data switch: a segmented control (UI3) that hugs its
+         labels and sits centered, both halves as wide as the wider one. The
+         raised indicator is one ::before that slides under the picked half. */
+      .subtabs > .tabs {
+        position: relative;
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 1fr;
+        align-self: center;
+        padding: 1px;
+        gap: 0;
+        border-radius: 999px;
+        background: var(--color-bg-secondary);
+      }
+
+      .subtabs > .tabs::before {
+        content: "";
+        position: absolute;
+        top: 1px;
+        bottom: 1px;
+        left: 1px;
+        width: calc(50% - 1px);
+        border-radius: 999px;
+        background: var(--color-bg);
+        box-shadow: inset 0 0 0 1px var(--color-border);
+        transition: transform 50ms ease-out;
+      }
+
+      .subtabs > .tabs:has(.tab-button:nth-child(2)[aria-selected="true"])::before {
+        transform: translateX(100%);
+      }
+
+      .subtabs .tab-button {
+        position: relative;
+        height: 1.375rem;
+        padding: 0 var(--spacer-2-5);
+        border-radius: 999px;
+        background-color: transparent;
+      }
+
+      .subtabs .tab-button:hover {
+        color: var(--color-text);
+        background-color: transparent;
+      }
+
+      .subtabs .tab-button[aria-selected="true"] {
+        background-color: transparent;
+      }
+
       .table-wrap {
-        max-height: 220px;
+        max-height: max(220px, calc(100vh - 17rem));
         overflow: auto;
         border: 1px solid var(--color-border);
         border-radius: var(--radius-medium);
       }
 
+      /* font: inherit, because tables in a quirks-mode document (how Figma
+         can load the UI) fall back to the browser's 16px instead of the body's
+         11px. */
       table.preview-table {
         border-collapse: collapse;
         width: 100%;
+        font: inherit;
       }
 
       table.preview-table th,
@@ -528,8 +787,15 @@
         background: transparent;
       }
 
+      /* Pinned to the bottom of the scrolling tab, covering what passes under. */
       .footer {
         flex: 0 0 auto;
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        margin-top: calc(-1 * var(--spacer-2));
+        padding-top: var(--spacer-2);
+        background: var(--color-bg);
       }
 
       .status {
@@ -602,16 +868,17 @@
           Paste a Google Sheet link above and hit Fetch.<br />
           Set sharing to "Anyone with the link can view". The first row is used as column names.<br />
           To use a specific tab, open that tab and copy its URL (it includes #gid=…).<br />
+          Name a layer {Column} or #Column to fill it by name, or {Property:Column} on an instance to set a variant, boolean or swap.<br />
           A preview of your rows and column mapping will appear here.
         </div>
         <div class="preview" id="sheet-preview" hidden>
-          <div>
-            <p class="section-label">Map columns → layers</p>
-            <div class="mapping" id="sheet-mapping"></div>
-          </div>
-          <div>
-            <p class="section-label">Data preview</p>
-            <div class="table-wrap" id="sheet-table"></div>
+          <div class="subtabs">
+            <div class="tabs" role="tablist">
+              <button class="tab-button" role="tab" type="button" data-pane="mapping" aria-selected="true"><span aria-hidden="true">Data mapping</span><span>Data mapping</span></button>
+              <button class="tab-button" role="tab" type="button" data-pane="data" aria-selected="false"><span aria-hidden="true">Preview</span><span>Preview</span></button>
+            </div>
+            <div class="pane" data-pane="mapping"><div class="mapping" id="sheet-mapping"></div></div>
+            <div class="pane" data-pane="data" hidden><div class="table-wrap" id="sheet-table"></div></div>
           </div>
         </div>
         <div class="footer">
@@ -638,20 +905,25 @@
         <div class="placeholder" id="api-placeholder">
           Enter an API URL above and hit Connect.<br />
           The endpoint should return JSON. The list of records is found automatically.<br />
+          Name a layer {field} or #field to fill it by name, or {Property:field} on an instance to set a variant, boolean or swap.<br />
           A preview of the records and field mapping will appear here.
         </div>
         <div class="preview" id="api-preview" hidden>
           <div id="api-lists-wrap" hidden>
             <p class="section-label">List</p>
-            <div class="tabs wrap" id="api-lists" role="tablist"></div>
+            <div class="select"><select id="api-lists" aria-label="List"></select></div>
           </div>
-          <div>
-            <p class="section-label">Map fields → layers</p>
-            <div class="mapping" id="api-mapping"></div>
+          <div id="api-facet-wrap" hidden>
+            <p class="section-label" id="api-facet-label">Category</p>
+            <div id="api-facet-mount"></div>
           </div>
-          <div>
-            <p class="section-label">Data preview</p>
-            <div class="table-wrap" id="api-table"></div>
+          <div class="subtabs">
+            <div class="tabs" role="tablist">
+              <button class="tab-button" role="tab" type="button" data-pane="mapping" aria-selected="true"><span aria-hidden="true">Data mapping</span><span>Data mapping</span></button>
+              <button class="tab-button" role="tab" type="button" data-pane="data" aria-selected="false"><span aria-hidden="true">Preview</span><span>Preview</span></button>
+            </div>
+            <div class="pane" data-pane="mapping"><div class="mapping" id="api-mapping"></div></div>
+            <div class="pane" data-pane="data" hidden><div class="table-wrap" id="api-table"></div></div>
           </div>
         </div>
         <div class="footer">
@@ -665,6 +937,23 @@
     <script>
       var hasValidSelection = false;
       var textLayers = [];
+      // "// Tab" names in the selected layers, for the Sheets tab to fetch.
+      var selectionLists = [];
+      // Fields a selected layer's name already binds ({title}, #price,
+      // {Old Price:oldPrice}); their rows show "Linked", not a dropdown.
+      var boundFields = [];
+
+      // Matches code.js's loose(): case, spaces and symbols ignored.
+      function loose(value) {
+        return String(value).toLowerCase().replace(/[^a-z0-9À-ɏ؀-ۿ]+/g, "");
+      }
+
+      function isBoundField(field) {
+        var want = loose(field);
+        return boundFields.some(function (bound) {
+          return loose(bound) === want || loose(String(bound).split(".")[0]) === want;
+        });
+      }
       var activeTabName = "paste";
 
       // Holds parsed records per mode so we can build mappings.
@@ -718,6 +1007,8 @@
               // Only a URL that answered with records is ever saved.
               apiUrl: savedApiUrl,
               apiListPath: apiListPath,
+              // The picked category (code), "" for all.
+              apiFacet: apiFacetValue,
               activeTab: activeTabName
             }
           }
@@ -727,24 +1018,6 @@
       // ---------- Tabs ----------
       var tabButtons = document.querySelectorAll(".plugin > .tabs .tab-button");
       var tabs = document.querySelectorAll(".tab");
-
-      // A tab button's label, twice in one grid cell: the invisible strong
-      // copy holds the width so selecting it does not shift its neighbours.
-      function tabButton(label, selected) {
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "tab-button";
-        btn.setAttribute("role", "tab");
-        btn.setAttribute("aria-selected", selected ? "true" : "false");
-        var ghost = document.createElement("span");
-        ghost.setAttribute("aria-hidden", "true");
-        ghost.textContent = label;
-        var text = document.createElement("span");
-        text.textContent = label;
-        btn.appendChild(ghost);
-        btn.appendChild(text);
-        return btn;
-      }
 
       function selectTab(name) {
         activeTabName = name;
@@ -764,6 +1037,22 @@
         });
       });
 
+      // Mapping / Data tabs under a fetched source.
+      document.querySelectorAll(".subtabs").forEach(function (box) {
+        var buttons = box.querySelectorAll(".tab-button");
+        buttons.forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var pane = btn.getAttribute("data-pane");
+            buttons.forEach(function (b) {
+              b.setAttribute("aria-selected", b === btn ? "true" : "false");
+            });
+            box.querySelectorAll(".pane").forEach(function (el) {
+              el.hidden = el.getAttribute("data-pane") !== pane;
+            });
+          });
+        });
+      });
+
       // ---------- Mode #1: Paste ----------
       var pasteInput = document.getElementById("paste-input");
       var pasteBtn = document.getElementById("paste-populate");
@@ -778,12 +1067,212 @@
         parent.postMessage({ pluginMessage: { type: "populate-lines", text: pasteInput.value } }, "*");
       });
 
+      // ---------- Picker ----------
+      // A select with a search box, in Figma's dark menu, for lists too long
+      // to scan: the mapping dropdowns and the category picker. Options are
+      // { value, title, icon, count }; the "" option (Skip, All) shows only
+      // while the search is empty. Enter picks the first match, the arrows
+      // move between the search and the items, Escape or a click outside
+      // closes it.
+      var openPicker = null;
+
+      // Search text: case, Arabic and Persian letter forms and the zero-width
+      // non-joiner do not matter, so "ي" finds "ی" and "آشپزخانه" is found
+      // whether or not either side has the non-joiner.
+      function searchText(text) {
+        return String(text).toLowerCase()
+          .replace(/ي/g, "ی").replace(/ك/g, "ک")
+          .replace(/[‌\s]+/g, " ").trim();
+      }
+
+      // One row: check slot (menu only), icon, title, count.
+      function pickerRow(el, option, withCheck) {
+        el.innerHTML = "";
+        if (withCheck) {
+          var check = document.createElement("span");
+          check.className = "picker-check";
+          el.appendChild(check);
+        }
+        if (option.icon) {
+          var icon = document.createElement("span");
+          icon.className = "picker-icon";
+          icon.style.setProperty("--icon", "url(\"" + option.icon.replace(/"/g, "%22") + "\")");
+          el.appendChild(icon);
+        }
+        var title = document.createElement("span");
+        title.className = "picker-title";
+        title.textContent = option.title;
+        el.appendChild(title);
+        if (option.count != null) {
+          var count = document.createElement("span");
+          count.className = "picker-count";
+          count.textContent = String(option.count);
+          el.appendChild(count);
+        }
+      }
+
+      function makePicker(onSelect) {
+        var picker = { options: [], value: "" };
+        var root = document.createElement("div");
+        root.className = "picker";
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = "picker-button";
+        button.setAttribute("aria-haspopup", "listbox");
+        button.setAttribute("aria-expanded", "false");
+        var menu = document.createElement("div");
+        menu.className = "picker-menu";
+        menu.hidden = true;
+        var search = document.createElement("input");
+        search.className = "picker-search";
+        search.type = "text";
+        search.placeholder = "Search";
+        search.spellcheck = false;
+        search.autocomplete = "off";
+        search.setAttribute("aria-label", "Search");
+        var items = document.createElement("div");
+        items.className = "picker-items";
+        items.setAttribute("role", "listbox");
+        var empty = document.createElement("div");
+        empty.className = "picker-empty";
+        empty.textContent = "No matches";
+        empty.hidden = true;
+        menu.appendChild(search);
+        menu.appendChild(items);
+        menu.appendChild(empty);
+        root.appendChild(button);
+        root.appendChild(menu);
+
+        function current() {
+          return picker.options.filter(function (o) { return o.value === picker.value; })[0] ||
+            picker.options[0];
+        }
+
+        function renderButton() {
+          var option = current();
+          if (option) pickerRow(button, option, false);
+          else button.textContent = "";
+        }
+
+        function renderItems() {
+          items.innerHTML = "";
+          picker.options.forEach(function (option) {
+            var item = document.createElement("button");
+            item.type = "button";
+            item.className = "picker-item";
+            item.setAttribute("role", "option");
+            item.setAttribute("aria-selected", option.value === picker.value ? "true" : "false");
+            item.setAttribute("data-search", option.value === "" ? "" : searchText(option.title + " " + option.value));
+            pickerRow(item, option, true);
+            item.addEventListener("click", function () { choose(option.value); });
+            items.appendChild(item);
+          });
+        }
+
+        function visibleItems() {
+          return Array.prototype.filter.call(items.querySelectorAll(".picker-item"), function (item) {
+            return !item.hidden;
+          });
+        }
+
+        function filter() {
+          var query = searchText(search.value);
+          items.querySelectorAll(".picker-item").forEach(function (item) {
+            var text = item.getAttribute("data-search");
+            item.hidden = query ? !text || text.indexOf(query) === -1 : false;
+          });
+          empty.hidden = visibleItems().length > 0;
+        }
+
+        function open() {
+          if (openPicker && openPicker !== picker) openPicker.close();
+          openPicker = picker;
+          renderItems();
+          search.value = "";
+          filter();
+          menu.classList.remove("up");
+          menu.hidden = false;
+          button.setAttribute("aria-expanded", "true");
+          var below = window.innerHeight - button.getBoundingClientRect().bottom;
+          var above = button.getBoundingClientRect().top;
+          if (menu.offsetHeight + 8 > below && above > below) menu.classList.add("up");
+          var selected = items.querySelector('[aria-selected="true"]');
+          if (selected) selected.scrollIntoView({ block: "nearest" });
+          search.focus();
+        }
+
+        function close() {
+          menu.hidden = true;
+          button.setAttribute("aria-expanded", "false");
+          if (openPicker === picker) openPicker = null;
+        }
+
+        function choose(value) {
+          close();
+          button.focus();
+          if (value === picker.value) return;
+          picker.value = value;
+          renderButton();
+          onSelect(value);
+        }
+
+        button.addEventListener("click", function () {
+          if (menu.hidden) open();
+          else close();
+        });
+
+        search.addEventListener("input", filter);
+
+        search.addEventListener("keydown", function (event) {
+          var list = visibleItems();
+          if (event.key === "Enter" && list.length) {
+            event.preventDefault();
+            list[0].click();
+          } else if (event.key === "ArrowDown" && list.length) {
+            event.preventDefault();
+            list[0].focus();
+          }
+        });
+
+        items.addEventListener("keydown", function (event) {
+          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+          event.preventDefault();
+          var list = visibleItems();
+          var next = list.indexOf(document.activeElement) + (event.key === "ArrowDown" ? 1 : -1);
+          if (next < 0) search.focus();
+          else if (next < list.length) list[next].focus();
+        });
+
+        picker.el = root;
+        picker.button = button;
+        picker.close = close;
+        picker.setOptions = function (options, value) {
+          picker.options = options;
+          picker.value = value;
+          renderButton();
+        };
+        return picker;
+      }
+
+      document.addEventListener("mousedown", function (event) {
+        if (openPicker && !openPicker.el.contains(event.target)) openPicker.close();
+      });
+
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && openPicker) {
+          var picker = openPicker;
+          picker.close();
+          picker.button.focus();
+        }
+      });
+
       // ---------- Shared: build mapping UI ----------
       // fields = array of column/field names; container = mapping element;
       // records = parsed rows (used to show a sample value per field).
       function buildMapping(container, fields, records) {
         container.innerHTML = "";
         var sampleRow = (records && records[0]) || {};
+        var anyLinked = fields.some(isBoundField);
 
         fields.forEach(function (field) {
           var rowEl = document.createElement("div");
@@ -794,24 +1283,36 @@
           name.textContent = field;
           name.title = field;
 
-          var selectWrap = document.createElement("div");
-          selectWrap.className = "select";
-          var select = document.createElement("select");
-          selectWrap.appendChild(select);
-          select.setAttribute("data-field", field);
-          var none = document.createElement("option");
-          none.value = "";
-          none.textContent = "Skip";
-          select.appendChild(none);
-
-          textLayers.forEach(function (layer) {
-            var opt = document.createElement("option");
-            opt.value = layer;
-            opt.textContent = layer;
+          var selectWrap;
+          if (isBoundField(field)) {
+            selectWrap = document.createElement("div");
+            // A layer is named for this field and fills itself.
+            selectWrap.className = "linked";
+            selectWrap.textContent = "Linked";
+            selectWrap.title = "A selected layer is named {" + field + "}";
+          } else if (!textLayers.length) {
+            // Nothing selected to map to. With no "Linked" rows to line up
+            // with, the cell goes and the sample moves next to the name.
+            if (!anyLinked) selectWrap = null;
+            else {
+              selectWrap = document.createElement("div");
+              selectWrap.className = "linked";
+            }
+          } else {
             // Auto-match when field name equals layer name.
-            if (layer.toLowerCase() === field.toLowerCase()) opt.selected = true;
-            select.appendChild(opt);
-          });
+            var auto = textLayers.filter(function (layer) {
+              return layer.toLowerCase() === field.toLowerCase();
+            })[0] || "";
+            var picker = makePicker(function (value) {
+              picker.el.setAttribute("data-value", value);
+            });
+            picker.setOptions([{ value: "", title: "Skip" }].concat(textLayers.map(function (layer) {
+              return { value: layer, title: layer };
+            })), auto);
+            picker.el.setAttribute("data-field", field);
+            picker.el.setAttribute("data-value", auto);
+            selectWrap = picker.el;
+          }
 
           var sample = document.createElement("span");
           sample.className = "sample";
@@ -820,7 +1321,7 @@
           sample.title = sample.textContent;
 
           rowEl.appendChild(name);
-          rowEl.appendChild(selectWrap);
+          if (selectWrap) rowEl.appendChild(selectWrap);
           rowEl.appendChild(sample);
           container.appendChild(rowEl);
         });
@@ -861,8 +1362,9 @@
 
       function readMapping(container) {
         var mapping = {};
-        container.querySelectorAll("select").forEach(function (sel) {
-          if (sel.value) mapping[sel.getAttribute("data-field")] = sel.value;
+        container.querySelectorAll("[data-field]").forEach(function (el) {
+          var value = el.getAttribute("data-value");
+          if (value) mapping[el.getAttribute("data-field")] = value;
         });
         return mapping;
       }
@@ -1026,6 +1528,7 @@
         fetchSheetCsv(target)
           .then(function (text) {
             var parsed = csvToRecords(text);
+            sheetTabs = {};
             sheetRecords = parsed.records;
             sheetFields = parsed.fields;
             buildMapping(sheetMapping, sheetFields, sheetRecords);
@@ -1046,15 +1549,44 @@
           .then(function () { sheetFetch.disabled = false; });
       });
 
+      // Tabs a "// Tab" layer name asks for, fetched by name on Populate and
+      // kept until another sheet is fetched.
+      var sheetTabs = {};
+
+      function fetchSheetTab(id, name) {
+        if (sheetTabs[name]) return Promise.resolve(sheetTabs[name]);
+        var target = "https://docs.google.com/spreadsheets/d/" + id +
+          "/gviz/tq?tqx=out:csv&sheet=" + encodeURIComponent(name);
+        return fetchSheetCsv(target).then(function (text) {
+          sheetTabs[name] = csvToRecords(text).records;
+          return sheetTabs[name];
+        });
+      }
+
       sheetBtn.addEventListener("click", function () {
         sheetBtn.disabled = true;
-        parent.postMessage({
-          pluginMessage: {
-            type: "populate-records",
-            records: sheetRecords,
-            mapping: readMapping(sheetMapping)
-          }
-        }, "*");
+        var id = parseSheetId(sheetUrl.value.trim());
+        var names = id ? selectionLists : [];
+        var sources = {};
+        if (names.length) setStatus(sheetStatus, "Fetching " + names.join(", ") + "…");
+        Promise.all(names.map(function (name) {
+          return fetchSheetTab(id, name).then(function (records) { sources[name] = records; });
+        }))
+          .then(function () {
+            if (names.length) setStatus(sheetStatus, "");
+            parent.postMessage({
+              pluginMessage: {
+                type: "populate-records",
+                records: sheetRecords,
+                mapping: readMapping(sheetMapping),
+                sources: sources
+              }
+            }, "*");
+          })
+          .catch(function (err) {
+            setStatus(sheetStatus, "Could not read a tab named in a layer: " + (err.message || "failed"), "error");
+            updateAllButtons();
+          });
       });
 
       // ---------- Mode #3: JSON API ----------
@@ -1069,6 +1601,10 @@
       var apiListsWrap = document.getElementById("api-lists-wrap");
       var apiListsEl = document.getElementById("api-lists");
       var apiFields = [];
+      // Every list in the response, and the ones the List dropdown offers:
+      // a list that only groups another (categories for products) feeds the
+      // Category picker instead.
+      var apiAllLists = [];
       var apiLists = [];
       var apiListPath = "";
       var apiEdit = document.getElementById("api-edit");
@@ -1079,8 +1615,8 @@
       // - Verify before persisting. Only a URL that answered with at least
       //   one record is saved; a rejected one leaves the saved URL intact.
       // - Lock on a URL that answered, never on the field having text. The
-      //   locked field is disabled with a quiet Edit inside it, and the
-      //   button beside it refreshes.
+      //   locked field is disabled with a quiet Edit inside it and no button
+      //   beside it, since every launch reads it again.
       // - The field freezes while checking, and a status message never
       //   rewrites the field, so a fix in progress is not overwritten.
       // - Success is the green dot beside the label, nothing more; the status
@@ -1095,10 +1631,13 @@
         apiDot.title = title;
       }
 
+      // A saved URL is read on every launch, so a locked field has no button
+      // beside it; Edit brings back Save (or Connect for a first URL).
       function setApiLocked(locked) {
         apiUrl.disabled = locked;
         apiEdit.hidden = !locked;
-        apiFetch.textContent = locked ? "Refresh" : (savedApiUrl ? "Save" : "Connect");
+        apiFetch.hidden = locked;
+        apiFetch.textContent = savedApiUrl ? "Save" : "Connect";
       }
 
       function setApiChecking(on) {
@@ -1178,25 +1717,35 @@
       }
 
       // Show one list: its mapping, table and, when the response holds more
-      // than one, a tab per list to switch between them.
-      function showApiList(list) {
-        apiListPath = list.path;
-        // Coerce primitive arrays into objects so they're mappable.
-        apiRecords = list.items.map(function (item) {
+      // than one, a dropdown to switch between them.
+      // Coerce primitive arrays into objects so they're mappable.
+      function asRecords(items) {
+        return items.map(function (item) {
           return (item && typeof item === "object") ? item : { value: item };
         });
+      }
+
+      // Put records in the mapping and the preview table.
+      function showApiRecords(records) {
+        apiRecords = records;
         apiFields = fieldsFromRecords(apiRecords);
         buildMapping(apiMapping, apiFields, apiRecords);
         buildTable(apiTable, apiFields, apiRecords);
+        updateAllButtons();
+      }
+
+      function showApiList(list) {
+        apiListPath = list.path;
+        showApiRecords(asRecords(list.items));
+        setupFacet(list);
 
         apiListsEl.innerHTML = "";
-        apiLists.forEach(function (l) {
-          var chip = tabButton((l.path || "root") + " (" + l.items.length + ")", l === list);
-          chip.addEventListener("click", function () {
-            showApiList(l);
-            saveInputs();
-          });
-          apiListsEl.appendChild(chip);
+        apiLists.forEach(function (l, index) {
+          var opt = document.createElement("option");
+          opt.value = String(index);
+          opt.textContent = (l.path || "root") + " (" + l.items.length + ")";
+          opt.selected = l === list;
+          apiListsEl.appendChild(opt);
         });
         apiListsWrap.hidden = apiLists.length < 2;
 
@@ -1206,8 +1755,8 @@
       }
 
       // Read a URL and, when it answers with records, show them, save it and
-      // lock the field. Connect, Save, Refresh and the launch read all come
-      // through here: any read that answers proves the URL.
+      // lock the field. Connect, Save and the launch read all come through
+      // here: any read that answers proves the URL.
       function connectApi() {
         if (apiChecking) return;
         var url = apiUrl.value.trim();
@@ -1235,7 +1784,8 @@
             if (!lists.length) {
               throw new Error("The response has no list of records.");
             }
-            apiLists = lists;
+            apiAllLists = lists;
+            apiLists = recordLists(lists);
             savedApiUrl = url;
             setApiChecking(false);
             setApiLocked(true);
@@ -1254,6 +1804,171 @@
       }
 
       apiFetch.addEventListener("click", connectApi);
+
+      // ---------- Category picker ----------
+      // When another list in the response groups the records (categories[]
+      // whose code matches products[].category), a picker offers "All" and
+      // each group with its title, icon and count. Picking one reads the saved
+      // URL again with ?category=<code> (the records' field name), and keeps
+      // only the matching records, so a server that ignores the parameter
+      // still works. Nothing here names a server or a field.
+      var apiFacet = null;       // { list, key, field } or null
+      var apiFacetValue = "";    // "" is All
+      var apiBaseItems = [];     // the list as the saved URL returned it
+      var facetWrap = document.getElementById("api-facet-wrap");
+      var facetLabel = document.getElementById("api-facet-label");
+      var facetPicker = makePicker(selectFacet);
+      document.getElementById("api-facet-mount").appendChild(facetPicker.el);
+
+      function findFacet(lists, list) {
+        var records = list.items.filter(function (r) { return r && typeof r === "object"; });
+        if (!records.length) return null;
+        var fields = Object.keys(records[0]);
+        var keys = ["code", "slug", "key", "id", "value"];
+        for (var k = 0; k < keys.length; k++) {
+          for (var i = 0; i < lists.length; i++) {
+            var other = lists[i];
+            if (other === list) continue;
+            var values = other.items
+              .map(function (item) { return item && item[keys[k]]; })
+              .filter(function (v) { return typeof v === "string" || typeof v === "number"; })
+              .map(String);
+            if (values.length < 2) continue;
+            for (var f = 0; f < fields.length; f++) {
+              var field = fields[f];
+              // Numbers only count in a field named for an id (category_id,
+              // categoryId), so counts and ids that happen to line up, like
+              // categories[].count and products[].id, are not taken for groups.
+              var numeric = field !== "id" && /(_id|Id|ID)$/.test(field);
+              var all = records.every(function (r) {
+                var v = r[field];
+                return (typeof v === "string" || (numeric && typeof v === "number")) &&
+                  values.indexOf(String(v)) !== -1;
+              });
+              if (all) return { list: other, key: keys[k], field: field };
+            }
+          }
+        }
+        return null;
+      }
+
+      // The lists worth populating: every list that is not another's groups.
+      function recordLists(lists) {
+        var groupLists = [];
+        lists.forEach(function (l) {
+          var facet = findFacet(lists, l);
+          if (facet) groupLists.push(facet.list);
+        });
+        var shown = lists.filter(function (l) { return groupLists.indexOf(l) === -1; });
+        return shown.length ? shown : lists;
+      }
+
+      function facetGroups() {
+        return apiFacet.list.items.filter(function (item) {
+          return item && item[apiFacet.key] != null;
+        });
+      }
+
+      function facetTitle(group) {
+        return String(group.title || group.name || group.label || group[apiFacet.key]);
+      }
+
+      function facetIcon(group) {
+        var url = group.iconUrl || group.icon_url || group.iconURL || group.icon || group.image;
+        return typeof url === "string" && /^https?:\/\//i.test(url) ? url : "";
+      }
+
+      function facetCount(group) {
+        return typeof group.count === "number" ? group.count : null;
+      }
+
+      function capitalize(text) {
+        return text.charAt(0).toUpperCase() + text.slice(1);
+      }
+
+      function allLabel() {
+        return "All " + (apiFacet.list.path.split(".").pop() || "groups");
+      }
+
+      function allCount() {
+        var groups = facetGroups();
+        if (!groups.every(function (g) { return facetCount(g) != null; })) return null;
+        return groups.reduce(function (sum, g) { return sum + facetCount(g); }, 0);
+      }
+
+      function currentGroup() {
+        return facetGroups().filter(function (g) {
+          return String(g[apiFacet.key]) === apiFacetValue;
+        })[0] || null;
+      }
+
+      // "All" first, then each group with its icon and count.
+      function facetOptions() {
+        return [{ value: "", title: allLabel(), count: allCount() }].concat(facetGroups().map(function (g) {
+          return { value: String(g[apiFacet.key]), title: facetTitle(g), icon: facetIcon(g), count: facetCount(g) };
+        }));
+      }
+
+      // Called with each list shown: find its groups and re-apply the pick.
+      function setupFacet(list) {
+        apiBaseItems = list.items;
+        apiFacet = findFacet(apiAllLists, list);
+        facetWrap.hidden = !apiFacet;
+        facetPicker.close();
+        if (!apiFacet) return;
+        facetLabel.textContent = capitalize(apiFacet.field);
+        if (apiFacetValue && !currentGroup()) apiFacetValue = "";
+        facetPicker.setOptions(facetOptions(), apiFacetValue);
+        if (apiFacetValue) loadFacet(apiFacetValue);
+      }
+
+      function selectFacet(value) {
+        apiFacetValue = value;
+        saveInputs();
+        if (value) loadFacet(value);
+        else showApiRecords(asRecords(apiBaseItems));
+      }
+
+      function matchesFacet(record, value) {
+        return record && String(record[apiFacet.field]) === value;
+      }
+
+      function loadFacet(value) {
+        var url;
+        try {
+          var parsed = new URL(savedApiUrl);
+          parsed.searchParams.set(apiFacet.field, value);
+          url = parsed.toString();
+        } catch (e) {
+          return;
+        }
+        setApiDot("checking", "Checking…");
+        fetchViaPlugin(url)
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status + " from " + url);
+            return JSON.parse(res.text);
+          })
+          .then(function (json) {
+            if (apiFacetValue !== value) return; // a newer pick is loading
+            var list = findRecordLists(json).filter(function (l) { return l.path === apiListPath; })[0];
+            var records = (list ? list.items : []).filter(function (r) { return matchesFacet(r, value); });
+            showApiRecords(asRecords(records));
+            setApiDot("connected", "Connected, read " + new Date().toLocaleTimeString());
+            setStatus(apiStatus, records.length ? "" : "Nothing in that " + apiFacet.field + ".", records.length ? "" : "error");
+          })
+          .catch(function (err) {
+            if (apiFacetValue !== value) return;
+            setApiDot("offline", "Last read failed");
+            setStatus(apiStatus, explainFetchFailure((err && err.message) || "Failed to fetch"), "error");
+          });
+      }
+
+      apiListsEl.addEventListener("change", function () {
+        var list = apiLists[Number(apiListsEl.value)];
+        if (!list) return;
+        showApiList(list);
+        saveInputs();
+      });
 
       apiUrl.addEventListener("keydown", function (event) {
         if (event.key === "Enter") {
@@ -1279,14 +1994,64 @@
 
       apiBtn.addEventListener("click", function () {
         apiBtn.disabled = true;
+        // Every list in the response, for layers named "// path".
+        var sources = {};
+        apiAllLists.forEach(function (l) {
+          sources[l.path || "root"] = l.items.map(function (item) {
+            return (item && typeof item === "object") ? item : { value: item };
+          });
+        });
         parent.postMessage({
           pluginMessage: {
             type: "populate-records",
             records: apiRecords,
-            mapping: readMapping(apiMapping)
+            mapping: readMapping(apiMapping),
+            sources: sources
           }
         }, "*");
       });
+
+      // ---------- Image conversion ----------
+      // figma.createImage only takes PNG, JPEG and GIF up to 4096px, so the
+      // plugin hands anything else (WebP, AVIF, SVG) or anything larger to
+      // this canvas and gets PNG bytes back.
+      function decodeImage(bytes) {
+        var blob = new Blob([bytes]);
+        return createImageBitmap(blob).catch(function () {
+          // SVG does not decode as a bitmap; an <img> reads it.
+          return new Promise(function (resolve, reject) {
+            var url = URL.createObjectURL(new Blob([bytes], { type: "image/svg+xml" }));
+            var img = new Image();
+            img.onload = function () { URL.revokeObjectURL(url); resolve(img); };
+            img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("unreadable image")); };
+            img.src = url;
+          });
+        });
+      }
+
+      function convertImage(message) {
+        function reply(extra) {
+          var out = { type: "converted-image", requestId: message.requestId };
+          for (var k in extra) out[k] = extra[k];
+          parent.postMessage({ pluginMessage: out }, "*");
+        }
+        decodeImage(message.bytes)
+          .then(function (image) {
+            var scale = Math.min(1, 4096 / Math.max(image.width, image.height));
+            var canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, Math.round(image.width * scale));
+            canvas.height = Math.max(1, Math.round(image.height * scale));
+            canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+            return new Promise(function (resolve, reject) {
+              canvas.toBlob(function (png) {
+                if (png) resolve(png); else reject(new Error("could not redraw the image"));
+              }, "image/png");
+            });
+          })
+          .then(function (png) { return png.arrayBuffer(); })
+          .then(function (buffer) { reply({ bytes: new Uint8Array(buffer) }); })
+          .catch(function (err) { reply({ error: (err && err.message) || "unreadable image" }); });
+      }
 
       // ---------- Button enabling ----------
       function updateAllButtons() {
@@ -1332,6 +2097,11 @@
           return;
         }
 
+        if (message.type === "convert-image") {
+          convertImage(message);
+          return;
+        }
+
         if (message.type === "populate-result") {
           updateAllButtons();
         }
@@ -1339,6 +2109,7 @@
         if (message.type === "restore-inputs" && message.inputs) {
           if (message.inputs.sheetUrl != null) sheetUrl.value = message.inputs.sheetUrl;
           if (message.inputs.apiListPath != null) apiListPath = message.inputs.apiListPath;
+          if (message.inputs.apiFacet != null) apiFacetValue = String(message.inputs.apiFacet);
           if (message.inputs.activeTab) selectTab(message.inputs.activeTab);
           // A saved endpoint opens locked and loads at once, so the user
           // doesn't have to press anything. If it no longer answers, the
@@ -1354,6 +2125,8 @@
         if (message.type === "selection-state") {
           hasValidSelection = message.hasValidSelection;
           textLayers = message.textLayers || [];
+          selectionLists = message.listNames || [];
+          boundFields = message.boundFields || [];
           // Rebuild mappings so dropdowns reflect the new selection's layers.
           if (sheetRecords.length) buildMapping(sheetMapping, sheetFields, sheetRecords);
           if (apiRecords.length) buildMapping(apiMapping, apiFields, apiRecords);
