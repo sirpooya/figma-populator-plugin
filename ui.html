@@ -1071,12 +1071,6 @@
       }
       var activeTabName = "paste";
 
-      // Populator's own public Worker (proxy/worker.js) serves only the
-      // made-up sample API, so the JSON API tab works for anyone, Figma
-      // reviewers included. Sheets never go through it. Never a private server.
-      var POPULATOR_SERVER = "https://populator-proxy.pooyakamel.workers.dev";
-      var SAMPLE_API_URL = POPULATOR_SERVER + "/sample-products.json";
-
       // Holds parsed records per mode so we can build mappings.
       var sheetRecords = [];
       var apiRecords = [];
@@ -1809,8 +1803,6 @@
       var apiLists = [];
       var apiListPath = "";
       var apiEdit = document.getElementById("api-edit");
-      // Prefilled until the user saves their own; restore-inputs replaces it.
-      apiUrl.value = SAMPLE_API_URL;
 
       // The URL field follows compliance-audit's "connect, verify, lock"
       // (from Pooya's compliance-audit plugin, from

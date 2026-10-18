@@ -1,6 +1,6 @@
 {
   "name": "Populator",
-  "id": "populator-1399210000000000001",
+  "id": "1693580941934693391",
   "api": "1.0.0",
   "main": "code.js",
   "ui": "ui.html",
@@ -8,6 +8,6 @@
   "documentAccess": "dynamic-page",
   "networkAccess": {
     "allowedDomains": ["*"],
-    "reasoning": "Reads data the user points it at: JSON from any API URL the user enters, and image URLs found in that data. A Google Sheet is read from the Google Sheets API with the user's own API key, or through a Cloudflare Worker the user runs and enters. A made-up sample API is served from populator-proxy.pooyakamel.workers.dev. Nothing from the Figma document is sent anywhere."
+    "reasoning": "Reads data the user points it at: JSON from any API URL the user enters, and image URLs found in that data. A Google Sheet is read from the Google Sheets API with the user's own API key, or through a Cloudflare Worker the user runs and enters. Populator runs no server of its own. Nothing from the Figma document is sent anywhere."
   }
 }

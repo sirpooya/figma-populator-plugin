@@ -1,8 +1,4 @@
-name = "populator-proxy"
+name = "populator-sheets-proxy"
 main = "worker.js"
 compatibility_date = "2026-10-01"
 preview_urls = false
-
-# Populator serves only the sample here; delete this for a sheet proxy.
-[vars]
-SAMPLE_ONLY = "1"

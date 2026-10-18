@@ -128,20 +128,19 @@ Spreadsheet Sync's variants, strokes and text placeholders. `parseName` and
      names are read as ranges. A key is free (Google Cloud: enable the Google
      Sheets API, create an API key restricted to it; no billing needed).
   2. **Cloudflare Worker proxy**: the user's own deploy of `proxy/worker.js`
-     with `SAMPLE_ONLY` removed; `{url}` in its URL is replaced, else `?url=`
+     (a template in this repo); `{url}` in its URL is replaced, else `?url=`
      is added.
   With neither, Fetch says to set one up; Populator never proxies sheets.
-- Populator's own Worker (`proxy/worker.js`, live at
-  `https://populator-proxy.pooyakamel.workers.dev`, `POPULATOR_SERVER` in
-  ui.html) serves only `/sample-products.json` (made-up products, picsum
-  images) that prefills the JSON API field. `SAMPLE_ONLY` in `wrangler.toml`
-  turns its sheet route off (404). Deploy from `proxy/` with
-  `pnpm dlx wrangler deploy` (Cloudflare account pooyakamel@gmail.com).
+- **Populator hosts NO server, ever.** Pooya's rule, stated many times: the
+  plugin is fully server agnostic, and only the user's own key, Worker or
+  API is ever contacted. A Populator-hosted sample API Worker
+  (`populator-proxy.pooyakamel.workers.dev`) briefly existed on 2026-10-18;
+  it was deleted from Cloudflare and removed from the plugin the same day.
+  Never add a Populator-hosted endpoint, proxy or sample again.
 
 ## Design rule: server agnostic
 
-The plugin must never hardcode a private server (its own public sample
-Worker, above, is the one fixed address). The user types the endpoint
+The plugin must never hardcode any server, private or its own. The user types the endpoint
 into the JSON API tab and it is saved per user in `figma.clientStorage`
 (`populator-inputs`). That is what lets it be published publicly while the
 owner points it at a private endpoint.
@@ -182,16 +181,23 @@ copy from them rather than inventing:
 ### Community release prep
 
 Done 2026-10-18: the public CORS proxies are gone (sheets need the user's
-own key or Worker, above), the sample API is prefilled in the JSON API field
-until the user saves their own, and the manifest `reasoning` says how sheets
-are read and that nothing from the document is sent.
+own key or Worker, above), and the manifest `reasoning` says how sheets are
+read, that Populator runs no server, and that nothing from the document is
+sent. The JSON API field starts empty; there is no built-in sample.
 
 Also done: the manifest sets `"documentAccess": "dynamic-page"` (required to
 publish), so whole-document reads go through `figma.loadAllPagesAsync()`
 first (`localComponents` in code.js); `redactKey` keeps the Google key out
-of console logs. Still open: the manifest `id` is made up. Figma gives a real
-one when the plugin is created in Figma (Plugins > Development > New plugin,
-or the Publish flow); copy it into `manifest.json` before publishing.
+of console logs. The manifest `id` is the real one Figma assigned: `1693580941934693391`.
+
+Listing text (tagline, description, features, category) is the `Populator`
+frame, node `1689:173`, in the same Identity file; keep it in step with
+features (updated 2026-10-18 for Settings; no sample API). Listing name
+"Populator: real data from JSON, API & Google Sheets", category Design
+tools, 12 tags in its `keywords` node; the description pitches it as the
+maintained successor to Data Populator (6.5k users, last updated Feb 2020,
+dead demo source) since both use the `{field}` syntax. Market research is in
+`docs/community-research.md`.
 
 Listing screenshots (done 2026-10-18): `screenshot-01`..`03` on the Cover
 page of the Identity Figma file (`c355CFTPCBSqHuxS7G7vb0`), one per tab,

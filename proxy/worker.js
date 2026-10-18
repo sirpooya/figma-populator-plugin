@@ -1,24 +1,17 @@
 /**
- * Populator Worker, a Cloudflare Worker. Two routes, nothing else:
+ * Google Sheets proxy template, a Cloudflare Worker for USERS to deploy on
+ * their own Cloudflare account. Populator itself runs no server.
  *
- *   GET /?url=<sheet export>   Google Sheets proxy. Figma plugins run with
- *     origin "null" and Google's gviz endpoint sends no CORS header, so the
- *     plugin can't read a sheet directly. This fetches the export server side
- *     and re-serves it with Access-Control-Allow-Origin: *. Only
+ *   GET /?url=<sheet export>   Figma plugins run with origin "null" and
+ *     Google's gviz endpoint sends no CORS header, so the plugin can't read a
+ *     sheet directly. This fetches the export server side and re-serves it
+ *     with Access-Control-Allow-Origin: *. Only
  *     https://docs.google.com/spreadsheets/d/<id>/gviz/tq is accepted, so it
  *     can't be used as an open relay. Nothing is logged or stored.
  *
- *   GET /sample-products.json   Made-up products for the JSON API tab, so the
- *     plugin works for anyone (Figma reviewers included) without a server.
- *
- * Deploy from this folder: pnpm dlx wrangler deploy
- *
- * Populator's own deployment sets SAMPLE_ONLY (wrangler.toml), so it serves
- * only the sample and never proxies sheets. A user who deploys this as their
- * own sheet proxy removes that var and pastes the Worker URL into Settings.
+ * Deploy from this folder (pnpm dlx wrangler deploy), then paste the Worker
+ * URL into Populator's Settings as the Cloudflare Worker proxy.
  */
-import sample from "./sample-products.json";
-
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
@@ -32,17 +25,13 @@ function reply(body, status, type) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request) {
     if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
     if (request.method !== "GET") return reply("Method not allowed", 405);
 
     const url = new URL(request.url);
 
-    if (url.pathname === "/sample-products.json") {
-      return reply(JSON.stringify(sample), 200, "application/json; charset=utf-8");
-    }
-
-    if (url.pathname !== "/" || (env && env.SAMPLE_ONLY)) return reply("Not found", 404);
+    if (url.pathname !== "/") return reply("Not found", 404);
 
     const target = url.searchParams.get("url");
     if (!target) return reply("Missing ?url=", 400);
