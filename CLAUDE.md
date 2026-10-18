@@ -117,16 +117,31 @@ Spreadsheet Sync's variants, strokes and text placeholders. `parseName` and
     that.
   - `dkstatics-public.digikala.com` (product images) sends
     `access-control-allow-origin: *`, so image URLs can be used as they are.
-- The Sheets tab currently routes through five PUBLIC CORS proxies
-  (codetabs, corsproxy.io, allorigins, cors.sh, thingproxy) listed in
-  `proxied()` in ui.html. They see the sheet URL. This is undisclosed in the
-  manifest and a likely Community review problem; it is not resolved yet.
-- `proxy/` holds an old Cloudflare Worker (`worker.js`, `wrangler.toml`) that
-  the UI no longer uses.
+- Google Sheets: every keyless Google route (`gviz`, `export?format=csv`,
+  `pub?output=csv`) is CORS-blocked (rechecked 2026-10-18), so a sheet needs
+  one of two things the USER sets in Settings (gear at the end of the tab
+  row, `data-tab="settings"`, shown in place of the tab body and never saved
+  as the active tab), saved as `sheetApiKey` / `sheetProxy`:
+  1. **Google API key** (recommended): `readSheet` in ui.html reads through
+     the Sheets API (`sheets.googleapis.com/v4`, which sends CORS headers),
+     no server at all. A `#gid=` tab is found by its `sheetId`; `// Tab`
+     names are read as ranges. A key is free (Google Cloud: enable the Google
+     Sheets API, create an API key restricted to it; no billing needed).
+  2. **Cloudflare Worker proxy**: the user's own deploy of `proxy/worker.js`
+     with `SAMPLE_ONLY` removed; `{url}` in its URL is replaced, else `?url=`
+     is added.
+  With neither, Fetch says to set one up; Populator never proxies sheets.
+- Populator's own Worker (`proxy/worker.js`, live at
+  `https://populator-proxy.pooyakamel.workers.dev`, `POPULATOR_SERVER` in
+  ui.html) serves only `/sample-products.json` (made-up products, picsum
+  images) that prefills the JSON API field. `SAMPLE_ONLY` in `wrangler.toml`
+  turns its sheet route off (404). Deploy from `proxy/` with
+  `pnpm dlx wrangler deploy` (Cloudflare account pooyakamel@gmail.com).
 
 ## Design rule: server agnostic
 
-The plugin must never hardcode a private server. The user types the endpoint
+The plugin must never hardcode a private server (its own public sample
+Worker, above, is the one fixed address). The user types the endpoint
 into the JSON API tab and it is saved per user in `figma.clientStorage`
 (`populator-inputs`). That is what lets it be published publicly while the
 owner points it at a private endpoint.
@@ -164,13 +179,26 @@ copy from them rather than inventing:
 - `dds-dashboard/figma-plugins/compliance-audit`: private variant, empty
   default, one API base set in Settings, nothing fetched until set.
 
-### Still to do before a Community release
+### Community release prep
 
-- Add a public sample endpoint (a generic `sample-products.json` with made-up
-  data, not Digikala's) to the `catalog-public-api` repo, and prefill it.
-  That repo is outside this one: ask before editing it.
-- Rewrite the manifest `reasoning` (it still mentions a CORS proxy).
-- Decide what happens to the public CORS proxies in the Sheets tab.
+Done 2026-10-18: the public CORS proxies are gone (sheets need the user's
+own key or Worker, above), the sample API is prefilled in the JSON API field
+until the user saves their own, and the manifest `reasoning` says how sheets
+are read and that nothing from the document is sent.
+
+Also done: the manifest sets `"documentAccess": "dynamic-page"` (required to
+publish), so whole-document reads go through `figma.loadAllPagesAsync()`
+first (`localComponents` in code.js); `redactKey` keeps the Google key out
+of console logs. Still open: the manifest `id` is made up. Figma gives a real
+one when the plugin is created in Figma (Plugins > Development > New plugin,
+or the Publish flow); copy it into `manifest.json` before publishing.
+
+Listing screenshots (done 2026-10-18): `screenshot-01`..`03` on the Cover
+page of the Identity Figma file (`c355CFTPCBSqHuxS7G7vb0`), one per tab,
+rebuilt as editable layers from the UI rendered at 340x420 (2x). All data in
+them is made up (`api.example.com`, a fake sheet ID, invented names), never
+the dds endpoint. The Figma connector (sirpooya@outlook.com) can only view
+the Figma-Plugins file, so it cannot write there.
 
 ## Private data source: Digikala mock products (dds-dashboard)
 

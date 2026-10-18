@@ -1,62 +1,63 @@
 /**
- * Populator CORS proxy — Cloudflare Worker.
+ * Populator Worker, a Cloudflare Worker. Two routes, nothing else:
  *
- * Figma plugins run with origin "null" and Google's gviz endpoint sends no
- * CORS header, so the plugin can't read a sheet directly. This Worker fetches
- * the target URL server-side (servers have no CORS rules) and re-serves the
- * body with Access-Control-Allow-Origin: *, which Figma accepts.
+ *   GET /?url=<sheet export>   Google Sheets proxy. Figma plugins run with
+ *     origin "null" and Google's gviz endpoint sends no CORS header, so the
+ *     plugin can't read a sheet directly. This fetches the export server side
+ *     and re-serves it with Access-Control-Allow-Origin: *. Only
+ *     https://docs.google.com/spreadsheets/d/<id>/gviz/tq is accepted, so it
+ *     can't be used as an open relay. Nothing is logged or stored.
  *
- * Deploy:
- *   1. npm i -g wrangler        (or use the Cloudflare dashboard editor)
- *   2. wrangler deploy          (from this folder; see wrangler.toml)
- *   3. Copy the printed https://populator-proxy.<you>.workers.dev URL
- *   4. In the plugin's Google Sheet tab, paste into "CORS proxy":
- *        https://populator-proxy.<you>.workers.dev/?url={URL}
+ *   GET /sample-products.json   Made-up products for the JSON API tab, so the
+ *     plugin works for anyone (Figma reviewers included) without a server.
  *
- * Only docs.google.com targets are allowed, so this can't be abused as an
- * open proxy.
+ * Deploy from this folder: pnpm dlx wrangler deploy
+ *
+ * Populator's own deployment sets SAMPLE_ONLY (wrangler.toml), so it serves
+ * only the sample and never proxies sheets. A user who deploys this as their
+ * own sheet proxy removes that var and pastes the Worker URL into Settings.
  */
+import sample from "./sample-products.json";
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "*"
+};
+
+const SHEET_EXPORT = /^\/spreadsheets\/d\/[A-Za-z0-9_-]+\/gviz\/tq$/;
+
+function reply(body, status, type) {
+  return new Response(body, { status, headers: { ...CORS, "Content-Type": type || "text/plain; charset=utf-8" } });
+}
+
 export default {
-  async fetch(request) {
-    const cors = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "*"
-    };
+  async fetch(request, env) {
+    if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
+    if (request.method !== "GET") return reply("Method not allowed", 405);
 
-    if (request.method === "OPTIONS") {
-      return new Response(null, { headers: cors });
+    const url = new URL(request.url);
+
+    if (url.pathname === "/sample-products.json") {
+      return reply(JSON.stringify(sample), 200, "application/json; charset=utf-8");
     }
 
-    const target = new URL(request.url).searchParams.get("url");
-    if (!target) {
-      return new Response("Missing ?url=", { status: 400, headers: cors });
-    }
+    if (url.pathname !== "/" || (env && env.SAMPLE_ONLY)) return reply("Not found", 404);
+
+    const target = url.searchParams.get("url");
+    if (!target) return reply("Missing ?url=", 400);
 
     let parsed;
     try {
       parsed = new URL(target);
     } catch {
-      return new Response("Bad url", { status: 400, headers: cors });
+      return reply("Bad url", 400);
+    }
+    if (parsed.protocol !== "https:" || parsed.hostname !== "docs.google.com" || !SHEET_EXPORT.test(parsed.pathname)) {
+      return reply("Only Google Sheets exports are allowed", 403);
     }
 
-    // Lock to Google Sheets so this isn't an open relay.
-    if (parsed.hostname !== "docs.google.com") {
-      return new Response("Only docs.google.com is allowed", { status: 403, headers: cors });
-    }
-
-    const upstream = await fetch(target, {
-      redirect: "follow",
-      headers: { "User-Agent": "Mozilla/5.0 PopulatorProxy" }
-    });
-
-    const body = await upstream.text();
-    return new Response(body, {
-      status: upstream.status,
-      headers: {
-        ...cors,
-        "Content-Type": upstream.headers.get("Content-Type") || "text/plain; charset=utf-8"
-      }
-    });
+    const upstream = await fetch(parsed.toString(), { redirect: "follow" });
+    return reply(await upstream.text(), upstream.status, upstream.headers.get("Content-Type"));
   }
 };

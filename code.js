@@ -12,6 +12,11 @@ figma.clientStorage.getAsync(SAVED_SIZE_KEY).then((size) => {
 // it is ready, so the message is never posted before the UI listens.
 const SAVED_INPUTS_KEY = "populator-inputs";
 
+// The user's Google API key rides in Sheets API URLs; keep it out of logs.
+function redactKey(url) {
+  return String(url).replace(/([?&]key=)[^&]+/, "$1…");
+}
+
 // The selected layers, filled in place, one record each, in reading order:
 // their order in an auto-layout parent, otherwise top to bottom and then left
 // to right on the canvas. Main components count only when named "+...", so a
@@ -413,7 +418,7 @@ async function applySpecial(node, op, run) {
 // ---------- Images ----------
 // The plugin fetches the URL itself (CORS still decides, see CLAUDE.md).
 // figma.createImage takes PNG, JPEG and GIF up to 4096px; anything else (WebP,
-// which Digikala's CDN serves, AVIF, SVG) or anything larger is redrawn as
+// which many CDNs serve, AVIF, SVG) or anything larger is redrawn as
 // PNG by the UI, which has a canvas.
 
 const pendingConversions = {};
@@ -559,9 +564,12 @@ async function pickVariantOption(instance, key, value) {
 }
 
 // Every local component and component set, read once per populate run.
+// With dynamic page loading the other pages must be loaded first.
 function localComponents(run) {
   if (!run.localComponents) {
-    run.localComponents = figma.root.findAllWithCriteria({ types: ["COMPONENT", "COMPONENT_SET"] });
+    run.localComponents = figma.loadAllPagesAsync().then(() =>
+      figma.root.findAllWithCriteria({ types: ["COMPONENT", "COMPONENT_SET"] })
+    );
   }
   return run.localComponents;
 }
@@ -571,7 +579,7 @@ function localComponents(run) {
 function componentForKey(preferred, run) {
   if (!hasOwn(run.imported, preferred.key)) {
     run.imported[preferred.key] = (async () => {
-      const local = localComponents(run).find((n) => n.key === preferred.key);
+      const local = (await localComponents(run)).find((n) => n.key === preferred.key);
       if (local) return local;
       try {
         return preferred.type === "COMPONENT_SET"
@@ -596,7 +604,7 @@ async function findComponent(name, preferredValues, run) {
     const node = await componentForKey(preferred, run);
     if (node && loose(node.name) === want) return usable(node);
   }
-  const local = localComponents(run).find((node) =>
+  const local = (await localComponents(run)).find((node) =>
     loose(node.name) === want &&
     !(node.type === "COMPONENT" && node.parent && node.parent.type === "COMPONENT_SET")
   );
@@ -983,7 +991,7 @@ figma.ui.onmessage = async (message) => {
   // the raw response text back to parse.
   if (message.type === "fetch-url") {
     const requestId = message.requestId;
-    console.log("[Populator] fetching:", message.url);
+    console.log("[Populator] fetching:", redactKey(message.url));
     try {
       const response = await fetch(message.url);
       const text = await response.text();
@@ -992,7 +1000,7 @@ figma.ui.onmessage = async (message) => {
       // page; surfacing finalUrl lets the UI report that precisely instead of
       // silently treating the login HTML as "bad data".
       const finalUrl = response.url || message.url;
-      console.log("[Populator] fetch ok:", response.status, "bytes:", text.length, "final:", finalUrl);
+      console.log("[Populator] fetch ok:", response.status, "bytes:", text.length, "final:", redactKey(finalUrl));
       figma.ui.postMessage({
         type: "fetch-result",
         requestId,

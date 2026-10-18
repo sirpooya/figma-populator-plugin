@@ -5,8 +5,9 @@
   "main": "code.js",
   "ui": "ui.html",
   "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
   "networkAccess": {
     "allowedDomains": ["*"],
-    "reasoning": "Fetches Google Sheets CSV (via CORS proxy) and user-provided JSON APIs to populate designs."
+    "reasoning": "Reads data the user points it at: JSON from any API URL the user enters, and image URLs found in that data. A Google Sheet is read from the Google Sheets API with the user's own API key, or through a Cloudflare Worker the user runs and enters. A made-up sample API is served from populator-proxy.pooyakamel.workers.dev. Nothing from the Figma document is sent anywhere."
   }
 }

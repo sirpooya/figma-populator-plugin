@@ -438,7 +438,7 @@
       }
 
       .placeholder {
-        flex: 1;
+        flex: 1 0 auto;
         min-height: 0;
         display: flex;
         align-items: center;
@@ -448,6 +448,16 @@
         border-radius: var(--radius-medium);
         background: var(--color-bg-secondary);
         color: var(--color-text-secondary);
+      }
+
+      /* Setup steps in an empty tab: a short numbered list, left aligned. */
+      .steps {
+        margin: 0;
+        padding-left: 1.25em;
+        text-align: left;
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacer-1);
       }
 
       .placeholder[hidden],
@@ -816,6 +826,89 @@
         color: var(--color-text-success);
       }
 
+      /* Gear at the end of the tab row: a 24px UI3 icon button that opens
+         Settings in place of the tab body, pressed while it is open. */
+      .icon-button {
+        flex: none;
+        width: 1.5rem;
+        height: 1.5rem;
+        margin-left: auto;
+        padding: 0;
+        border: none;
+        border-radius: var(--radius-medium);
+        outline: none;
+        background: none;
+        color: var(--color-icon-secondary);
+        cursor: default;
+        display: grid;
+        place-items: center;
+      }
+
+      .icon-button::before {
+        content: "";
+        width: 16px;
+        height: 16px;
+        background: currentColor;
+        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E") center / 16px no-repeat;
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E") center / 16px no-repeat;
+      }
+
+      .icon-button:hover {
+        background: var(--color-bg-hover);
+        color: var(--color-text);
+      }
+
+      .icon-button[aria-pressed="true"] {
+        background: var(--color-bg-secondary);
+        color: var(--color-text);
+      }
+
+      .icon-button:focus-visible {
+        outline: 1px solid var(--color-border-selected);
+        outline-offset: -1px;
+      }
+
+      .settings-head {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacer-1);
+      }
+
+      .settings-head .section-label,
+      .settings-head .hint {
+        margin: 0;
+      }
+
+      .tag {
+        margin-left: var(--spacer-1);
+        padding: 0 var(--spacer-1);
+        border-radius: var(--radius-medium);
+        background: var(--color-bg-secondary);
+        color: var(--color-text-secondary);
+        font-weight: normal;
+      }
+
+      /* "or" between the two ways in, on a hairline. */
+      .or {
+        display: flex;
+        align-items: center;
+        gap: var(--spacer-2);
+        color: var(--color-text-tertiary);
+      }
+
+      .or::before,
+      .or::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--color-border);
+      }
+
+      .hint {
+        margin: var(--spacer-1) 0 0;
+        color: var(--color-text-secondary);
+      }
+
       /* Bottom-right resize area, invisible */
       .resize-handle {
         position: fixed;
@@ -846,6 +939,27 @@
         <button class="tab-button" role="tab" type="button" data-tab="paste" aria-selected="true"><span aria-hidden="true">Manual</span><span>Manual</span></button>
         <button class="tab-button" role="tab" type="button" data-tab="sheet" aria-selected="false"><span aria-hidden="true">Google Sheet</span><span>Google Sheet</span></button>
         <button class="tab-button" role="tab" type="button" data-tab="api" aria-selected="false"><span aria-hidden="true">JSON API</span><span>JSON API</span></button>
+        <button class="icon-button" id="settings-button" type="button" aria-label="Settings" title="Settings" aria-pressed="false"></button>
+      </div>
+
+      <!-- Settings, opened from the gear -->
+      <div class="tab" data-tab="settings">
+        <div class="settings-head">
+          <p class="section-label">Google Sheets access</p>
+          <p class="hint">Google blocks plugins from reading sheets on their own. Add one of these.</p>
+          <div class="status" id="sheet-route"></div>
+        </div>
+        <div class="field">
+          <label for="sheet-api-key">Google API key <span class="tag">Recommended</span></label>
+          <input id="sheet-api-key" class="input" type="password" placeholder="AIza…" spellcheck="false" autocomplete="off" />
+          <p class="hint">Reads sheets directly from Google, no server. Free in Google Cloud: enable the Google Sheets API, then create a key.</p>
+        </div>
+        <div class="or"><span>or</span></div>
+        <div class="field">
+          <label for="sheet-proxy">Cloudflare Worker proxy</label>
+          <input id="sheet-proxy" class="input" type="url" placeholder="https://your-worker.workers.dev" spellcheck="false" />
+          <p class="hint">Your own Worker that fetches the sheet and returns it with CORS. Gets the sheet link as ?url=, or put {url} where it goes.</p>
+        </div>
       </div>
 
       <!-- Mode #1: Paste -->
@@ -865,11 +979,12 @@
         </div>
         <div class="status" id="sheet-status"></div>
         <div class="placeholder" id="sheet-placeholder">
-          Paste a Google Sheet link above and hit Fetch.<br />
-          Set sharing to "Anyone with the link can view". The first row is used as column names.<br />
-          To use a specific tab, open that tab and copy its URL (it includes #gid=…).<br />
-          Name a layer {Column} or #Column to fill it by name, or {Property:Column} on an instance to set a variant, boolean or swap.<br />
-          A preview of your rows and column mapping will appear here.
+          <ol class="steps">
+            <li>In Settings (gear, top right), add a Google API key or Worker.</li>
+            <li>Share the sheet: anyone with the link can view.</li>
+            <li>Paste its link and hit Fetch. Row 1 is the column names.</li>
+            <li>Name layers {Column} to fill them.</li>
+          </ol>
         </div>
         <div class="preview" id="sheet-preview" hidden>
           <div class="subtabs">
@@ -903,10 +1018,10 @@
         </div>
         <div class="status" id="api-status"></div>
         <div class="placeholder" id="api-placeholder">
-          Enter an API URL above and hit Connect.<br />
-          The endpoint should return JSON. The list of records is found automatically.<br />
-          Name a layer {field} or #field to fill it by name, or {Property:field} on an instance to set a variant, boolean or swap.<br />
-          A preview of the records and field mapping will appear here.
+          <ol class="steps">
+            <li>Paste a URL that returns JSON and hit Connect.</li>
+            <li>Name layers {field} to fill them.</li>
+          </ol>
         </div>
         <div class="preview" id="api-preview" hidden>
           <div id="api-lists-wrap" hidden>
@@ -956,6 +1071,12 @@
       }
       var activeTabName = "paste";
 
+      // Populator's own public Worker (proxy/worker.js) serves only the
+      // made-up sample API, so the JSON API tab works for anyone, Figma
+      // reviewers included. Sheets never go through it. Never a private server.
+      var POPULATOR_SERVER = "https://populator-proxy.pooyakamel.workers.dev";
+      var SAMPLE_API_URL = POPULATOR_SERVER + "/sample-products.json";
+
       // Holds parsed records per mode so we can build mappings.
       var sheetRecords = [];
       var apiRecords = [];
@@ -1004,6 +1125,8 @@
             type: "save-inputs",
             inputs: {
               sheetUrl: document.getElementById("sheet-url").value,
+              sheetApiKey: document.getElementById("sheet-api-key").value.trim(),
+              sheetProxy: document.getElementById("sheet-proxy").value.trim(),
               // Only a URL that answered with records is ever saved.
               apiUrl: savedApiUrl,
               apiListPath: apiListPath,
@@ -1021,6 +1144,7 @@
 
       function selectTab(name) {
         activeTabName = name;
+        settingsButton.setAttribute("aria-pressed", "false");
         tabButtons.forEach(function (b) {
           b.setAttribute("aria-selected", b.getAttribute("data-tab") === name ? "true" : "false");
         });
@@ -1029,6 +1153,21 @@
         });
         updateAllButtons();
       }
+
+      // The gear shows Settings in place of the tab body; a tab, or the gear
+      // again, goes back. activeTabName keeps the tab to return to.
+      var settingsButton = document.getElementById("settings-button");
+      settingsButton.addEventListener("click", function () {
+        if (settingsButton.getAttribute("aria-pressed") === "true") {
+          selectTab(activeTabName);
+          return;
+        }
+        settingsButton.setAttribute("aria-pressed", "true");
+        tabButtons.forEach(function (b) { b.setAttribute("aria-selected", "false"); });
+        tabs.forEach(function (t) {
+          t.classList.toggle("active", t.getAttribute("data-tab") === "settings");
+        });
+      });
 
       tabButtons.forEach(function (btn) {
         btn.addEventListener("click", function () {
@@ -1380,7 +1519,18 @@
       var sheetBtn = document.getElementById("sheet-populate");
       var sheetFields = [];
 
+      var sheetApiKey = document.getElementById("sheet-api-key");
+      var sheetProxy = document.getElementById("sheet-proxy");
+      var sheetRoute = document.getElementById("sheet-route");
+
       sheetUrl.addEventListener("input", saveInputs);
+      [sheetApiKey, sheetProxy].forEach(function (el) {
+        el.addEventListener("input", function () {
+          updateSheetRoute();
+          saveInputs();
+        });
+      });
+      updateSheetRoute();
 
       function setStatus(el, text, kind) {
         el.textContent = text;
@@ -1442,7 +1592,12 @@
 
       // Turn CSV text into { fields, records }, first row = column names.
       function csvToRecords(text) {
-        var rows = parseCsv(text).filter(function (r) {
+        return rowsToRecords(parseCsv(text));
+      }
+
+      // Rows of strings (from CSV or the Sheets API) into { fields, records }.
+      function rowsToRecords(allRows) {
+        var rows = allRows.filter(function (r) {
           return r.some(function (c) { return c !== ""; });
         });
         if (!rows.length) throw new Error("The sheet appears to be empty.");
@@ -1457,22 +1612,76 @@
         return { fields: cols, records: records };
       }
 
-      // ---------- Fetch the sheet as CSV via a CORS proxy ----------
+      // ---------- Or fetch the sheet as CSV via the user's Worker ----------
       // The plugin UI runs at origin "null" and Google's gviz endpoint sends no
       // Access-Control-Allow-Origin header, so a direct fetch is CORS-blocked.
-      // We route through public CORS proxies that re-serve the body with CORS
-      // headers. Several are tried in order so one being down isn't fatal.
-      // {enc} = URL-encoded target. NOTE: public proxies are best-effort and
-      // can rate-limit or go offline; if all fail, just retry.
+      // A Worker like proxy/worker.js fetches the export and re-serves it with
+      // CORS headers. The user's own Worker from Settings. Its URL may hold {url}; otherwise
+      // ?url= is added.
       function proxied(targetUrl) {
+        var base = sheetProxy.value.trim();
         var enc = encodeURIComponent(targetUrl);
-        return [
-          "https://api.codetabs.com/v1/proxy/?quest=" + enc,
-          "https://corsproxy.io/?url=" + enc,
-          "https://api.allorigins.win/raw?url=" + enc,
-          "https://proxy.cors.sh/" + targetUrl,
-          "https://thingproxy.freeboard.io/fetch/" + targetUrl
-        ];
+        if (base.indexOf("{url}") !== -1) return [base.replace("{url}", enc)];
+        return [base + (base.indexOf("?") === -1 ? "?" : "&") + "url=" + enc];
+      }
+
+      // ---------- Or read it directly with the user's Google API key ----------
+      // The Sheets API sends CORS headers, so with a key there is no server in
+      // between. The key is the user's own, saved only in their clientStorage.
+      function sheetsApi(path, key) {
+        var url = "https://sheets.googleapis.com/v4/spreadsheets/" + path +
+          (path.indexOf("?") === -1 ? "?" : "&") + "key=" + encodeURIComponent(key);
+        return fetchViaPlugin(url).then(function (res) {
+          var json = null;
+          try { json = JSON.parse(res.text); } catch (e) { /* not JSON */ }
+          if (!res.ok) {
+            var msg = json && json.error && json.error.message;
+            throw new Error("Google Sheets API: " + (msg || "HTTP " + res.status));
+          }
+          return json;
+        });
+      }
+
+      // A tab by name, or by gid (null means the first tab).
+      function readSheetDirect(id, key, opts) {
+        var title = opts.name
+          ? Promise.resolve(opts.name)
+          : sheetsApi(id + "?fields=sheets.properties(sheetId,title)", key).then(function (meta) {
+              var sheets = (meta.sheets || []).map(function (s) { return s.properties; });
+              var hit = opts.gid != null
+                ? sheets.filter(function (p) { return String(p.sheetId) === String(opts.gid); })[0]
+                : sheets[0];
+              if (!hit) throw new Error("No tab with gid " + opts.gid + " in that sheet.");
+              return hit.title;
+            });
+        return title.then(function (t) {
+          var range = encodeURIComponent("'" + t.replace(/'/g, "''") + "'");
+          return sheetsApi(id + "/values/" + range, key);
+        }).then(function (json) {
+          return rowsToRecords(json.values || []);
+        });
+      }
+
+      // The one way in: the API key when set, otherwise the user's Worker.
+      // With neither, Google's CORS block leaves no way to read the sheet.
+      function readSheet(id, opts) {
+        var key = sheetApiKey.value.trim();
+        if (key) return readSheetDirect(id, key, opts);
+        if (!sheetProxy.value.trim()) {
+          return Promise.reject(new Error("Add a Google API key or a Cloudflare Worker in Settings (gear, top right) to read sheets."));
+        }
+        var target = "https://docs.google.com/spreadsheets/d/" + id + "/gviz/tq?tqx=out:csv";
+        if (opts.name) target += "&sheet=" + encodeURIComponent(opts.name);
+        else if (opts.gid != null) target += "&gid=" + encodeURIComponent(opts.gid);
+        return fetchSheetCsv(target).then(csvToRecords);
+      }
+
+      function updateSheetRoute() {
+        var key = sheetApiKey.value.trim();
+        var proxy = sheetProxy.value.trim();
+        if (key) setStatus(sheetRoute, "Using your Google API key." + (proxy ? " The Worker is not used." : ""), "ok");
+        else if (proxy) setStatus(sheetRoute, "Using your Cloudflare Worker.", "ok");
+        else setStatus(sheetRoute, "Not set up: Google Sheets won't load yet.", "error");
       }
 
       function urlLabel(url) {
@@ -1506,7 +1715,7 @@
           chain = chain.catch(function () { return attempt(url); });
         });
         return chain.catch(function () {
-          throw new Error("All proxies failed: " + trail.join(" · "));
+          throw new Error("Could not read the sheet: " + trail.join(" · "));
         });
       }
 
@@ -1520,14 +1729,8 @@
         setStatus(sheetStatus, "Fetching…");
         sheetFetch.disabled = true;
 
-        var gid = parseGid(raw);
-        var target =
-          "https://docs.google.com/spreadsheets/d/" + id + "/gviz/tq?tqx=out:csv";
-        if (gid != null) target += "&gid=" + encodeURIComponent(gid);
-
-        fetchSheetCsv(target)
-          .then(function (text) {
-            var parsed = csvToRecords(text);
+        readSheet(id, { gid: parseGid(raw) })
+          .then(function (parsed) {
             sheetTabs = {};
             sheetRecords = parsed.records;
             sheetFields = parsed.fields;
@@ -1555,10 +1758,8 @@
 
       function fetchSheetTab(id, name) {
         if (sheetTabs[name]) return Promise.resolve(sheetTabs[name]);
-        var target = "https://docs.google.com/spreadsheets/d/" + id +
-          "/gviz/tq?tqx=out:csv&sheet=" + encodeURIComponent(name);
-        return fetchSheetCsv(target).then(function (text) {
-          sheetTabs[name] = csvToRecords(text).records;
+        return readSheet(id, { name: name }).then(function (parsed) {
+          sheetTabs[name] = parsed.records;
           return sheetTabs[name];
         });
       }
@@ -1608,9 +1809,11 @@
       var apiLists = [];
       var apiListPath = "";
       var apiEdit = document.getElementById("api-edit");
+      // Prefilled until the user saves their own; restore-inputs replaces it.
+      apiUrl.value = SAMPLE_API_URL;
 
       // The URL field follows compliance-audit's "connect, verify, lock"
-      // (dds-dashboard/figma-plugins/compliance-audit, from
+      // (from Pooya's compliance-audit plugin, from
       // figma-instance-migrator):
       // - Verify before persisting. Only a URL that answered with at least
       //   one record is saved; a rejected one leaves the saved URL intact.
@@ -2108,6 +2311,9 @@
 
         if (message.type === "restore-inputs" && message.inputs) {
           if (message.inputs.sheetUrl != null) sheetUrl.value = message.inputs.sheetUrl;
+          if (message.inputs.sheetApiKey) sheetApiKey.value = message.inputs.sheetApiKey;
+          if (message.inputs.sheetProxy) sheetProxy.value = message.inputs.sheetProxy;
+          updateSheetRoute();
           if (message.inputs.apiListPath != null) apiListPath = message.inputs.apiListPath;
           if (message.inputs.apiFacet != null) apiFacetValue = String(message.inputs.apiFacet);
           if (message.inputs.activeTab) selectTab(message.inputs.activeTab);

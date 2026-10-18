@@ -1,0 +1,143 @@
+{
+  "currency": "usd",
+  "note": "Made-up sample data for the Populator Figma plugin.",
+  "categories": [
+    {
+      "code": "audio",
+      "title": "Audio",
+      "count": 4
+    },
+    {
+      "code": "wearables",
+      "title": "Wearables",
+      "count": 4
+    },
+    {
+      "code": "home",
+      "title": "Home",
+      "count": 4
+    }
+  ],
+  "products": [
+    {
+      "id": 101,
+      "title": "Wireless Headphones",
+      "price": 129,
+      "oldPrice": 159,
+      "category": "audio",
+      "rating": 4.6,
+      "image": "https://picsum.photos/seed/populator-headphones/400/400",
+      "inStock": true
+    },
+    {
+      "id": 102,
+      "title": "Smart Watch S2",
+      "price": 199,
+      "oldPrice": 249,
+      "category": "wearables",
+      "rating": 4.4,
+      "image": "https://picsum.photos/seed/populator-watch/400/400",
+      "inStock": true
+    },
+    {
+      "id": 103,
+      "title": "Desk Lamp Mini",
+      "price": 39,
+      "oldPrice": 49,
+      "category": "home",
+      "rating": 4.8,
+      "image": "https://picsum.photos/seed/populator-lamp/400/400",
+      "inStock": false
+    },
+    {
+      "id": 104,
+      "title": "Bluetooth Speaker",
+      "price": 79,
+      "oldPrice": 99,
+      "category": "audio",
+      "rating": 4.5,
+      "image": "https://picsum.photos/seed/populator-speaker/400/400",
+      "inStock": true
+    },
+    {
+      "id": 105,
+      "title": "Fitness Band",
+      "price": 49,
+      "oldPrice": 59,
+      "category": "wearables",
+      "rating": 4.2,
+      "image": "https://picsum.photos/seed/populator-band/400/400",
+      "inStock": true
+    },
+    {
+      "id": 106,
+      "title": "Ceramic Mug Set",
+      "price": 24,
+      "oldPrice": 32,
+      "category": "home",
+      "rating": 4.7,
+      "image": "https://picsum.photos/seed/populator-mugs/400/400",
+      "inStock": true
+    },
+    {
+      "id": 107,
+      "title": "Noise Cancelling Earbuds",
+      "price": 149,
+      "oldPrice": 179,
+      "category": "audio",
+      "rating": 4.3,
+      "image": "https://picsum.photos/seed/populator-earbuds/400/400",
+      "inStock": true
+    },
+    {
+      "id": 108,
+      "title": "Smart Ring",
+      "price": 299,
+      "oldPrice": 329,
+      "category": "wearables",
+      "rating": 4.1,
+      "image": "https://picsum.photos/seed/populator-ring/400/400",
+      "inStock": false
+    },
+    {
+      "id": 109,
+      "title": "Studio Microphone",
+      "price": 99,
+      "oldPrice": 119,
+      "category": "audio",
+      "rating": 4.6,
+      "image": "https://picsum.photos/seed/populator-mic/400/400",
+      "inStock": true
+    },
+    {
+      "id": 110,
+      "title": "Linen Throw Pillow",
+      "price": 29,
+      "oldPrice": 35,
+      "category": "home",
+      "rating": 4.5,
+      "image": "https://picsum.photos/seed/populator-pillow/400/400",
+      "inStock": true
+    },
+    {
+      "id": 111,
+      "title": "Travel Mug",
+      "price": 19,
+      "oldPrice": 25,
+      "category": "home",
+      "rating": 4.4,
+      "image": "https://picsum.photos/seed/populator-travel-mug/400/400",
+      "inStock": true
+    },
+    {
+      "id": 112,
+      "title": "Kids Smart Watch",
+      "price": 89,
+      "oldPrice": 109,
+      "category": "wearables",
+      "rating": 4.0,
+      "image": "https://picsum.photos/seed/populator-kids-watch/400/400",
+      "inStock": true
+    }
+  ]
+}
