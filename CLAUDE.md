@@ -43,6 +43,8 @@ bottom; never give a section inside it its own `overflow-y`.
   happened to line up with `products[].id`. The picker menu has a search box
   (Enter picks the first match, arrows move) that ignores Arabic/Persian
   letter forms and the zero-width non-joiner. The picked list path is saved as `apiListPath`.
+  A Shuffle toggle (32px icon button beside Populate, saved as `apiShuffle`)
+  reorders the records and every `// name` list at random on each Populate.
   Before this, it took the FIRST array, which broke on responses like
   `{ categories: [...], products: [...] }`.
 
